@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ForApp" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:textColorPrimary">@color/fg</item>
+        <item name="android:textColorSecondary">@color/mid</item>
+        <item name="android:colorAccent">@color/red</item>
+        <item name="android:colorPrimary">@color/fg</item>
+        <item name="android:colorControlActivated">@color/fg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:fontFamily">@font/vazir</item>
+        <item name="android:alertDialogTheme">@style/Dialog.ForApp</item>
+    </style>
+    <style name="Dialog.ForApp" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:fontFamily">@font/vazir</item>
+        <item name="android:colorAccent">@color/red</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:textColorPrimary">@color/fg</item>
+    </style>
+</resources>

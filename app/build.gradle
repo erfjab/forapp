@@ -1,0 +1,58 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "app.forapp"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "app.forapp"
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // Put your own keystore next to this file and fill keystore.properties (see README).
+            def f = rootProject.file("keystore.properties")
+            if (f.exists()) {
+                def p = new Properties()
+                f.withInputStream { p.load(it) }
+                storeFile rootProject.file(p["storeFile"])
+                storePassword p["storePassword"]
+                keyAlias p["keyAlias"]
+                keyPassword p["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources.excludes += ["META-INF/**", "kotlin/**", "**.properties"]
+    }
+}
+
+dependencies {
+    // No runtime libraries on purpose: the app uses only the Android framework.
+    testImplementation "junit:junit:4.13.2"
+}
