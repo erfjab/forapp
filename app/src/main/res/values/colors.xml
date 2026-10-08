@@ -7,4 +7,6 @@
     <color name="line">#F2F2F2</color>
     <color name="red">#E4002B</color>
     <color name="redbg">#FFF0F2</color>
+    <color name="thumb_off">#FFFFFF</color>
+    <color name="track_off">#D9D9D9</color>
 </resources>

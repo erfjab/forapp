@@ -55,7 +55,7 @@ public final class SettingsActivity extends BaseActivity {
         PowerManager pm = getSystemService(PowerManager.class);
         boolean batteryOk = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
         link("بهینه‌سازی باتری", batteryOk ? "خاموش است" : "روشن است", batteryOk ? R.color.fg : R.color.red,
-                batteryOk ? "فورآپ در حالت خواب گوشی هم اینترنت دارد" : "خاموشش کنید تا ارسال‌ها در حالت خواب گوشی دیر نشوند",
+                batteryOk ? "ForApp در حالت خواب گوشی هم اینترنت دارد" : "خاموشش کنید تا ارسال‌ها در حالت خواب گوشی دیر نشوند",
                 () -> {
                     try {
                         startActivity(new Intent(batteryOk ? Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
@@ -100,7 +100,7 @@ public final class SettingsActivity extends BaseActivity {
                     Ui.toast(this, "لاگ پاک شد");
                 }));
 
-        TextView ver = Ui.text(this, "فورآپ نسخه‌ی " + Fa.d(versionName()) + " · همه‌ی داده‌ها فقط روی همین گوشی است · تم مثل گوشی",
+        TextView ver = Ui.text(this, "ForApp نسخه‌ی " + Fa.d(versionName()) + " · همه‌ی داده‌ها فقط روی همین گوشی است · تم مثل گوشی",
                 11.5f, R.color.mid, Ui.W_REGULAR);
         Ui.pad(ver, 20, 24, 20, 32);
         add(Ui.hairline(this, R.color.line));

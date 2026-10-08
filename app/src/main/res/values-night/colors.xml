@@ -7,4 +7,6 @@
     <color name="line">#1A1A1A</color>
     <color name="red">#FF3348</color>
     <color name="redbg">#2A0E12</color>
+    <color name="thumb_off">#6A6A6A</color>
+    <color name="track_off">#2A2A2A</color>
 </resources>

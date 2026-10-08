@@ -409,12 +409,53 @@ public final class Db extends SQLiteOpenHelper {
         getWritableDatabase().update("dels", v, "id=?", args(id));
     }
 
+    /** Takes one delivery for a manual send, unless it was sent already or is being sent right now. Returns it as it was. */
+    public synchronized Delivery claimOne(long id, long now) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            Delivery d = null;
+            try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at FROM dels"
+                    + " WHERE id=? AND (status IN (0,2) OR (status=3 AND updated_at<?))",
+                    new String[]{String.valueOf(id), String.valueOf(now - STALE_SENDING_MS)})) {
+                if (c.moveToFirst()) d = readDel(c);
+            }
+            if (d != null) {
+                ContentValues v = new ContentValues();
+                v.put("status", SENDING);
+                v.put("updated_at", now);
+                db.update("dels", v, "id=?", args(id));
+            }
+            db.setTransactionSuccessful();
+            return d;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    /** Makes deliveries that could not reach their server (an error but no HTTP code) due now. Returns how many. */
+    public int wakeUnreachable(long now) {
+        ContentValues v = new ContentValues();
+        v.put("next_at", now);
+        return getWritableDatabase().update("dels", v, "status=0 AND code IS NULL AND error IS NOT NULL AND next_at>?", args(now));
+    }
+
     /** When the next delivery becomes due, or -1 if nothing is waiting. */
     public long nextDueAt() {
         try (Cursor c = getReadableDatabase().rawQuery(
                 "SELECT MIN(CASE status WHEN 0 THEN next_at ELSE updated_at + " + STALE_SENDING_MS + " END) FROM dels WHERE status IN (0,3)", null)) {
             return c.moveToFirst() && !c.isNull(0) ? c.getLong(0) : -1;
         }
+    }
+
+    /** For the widget: {deposits, sum in toman, deposits with a failed delivery} since a time. Skipped SMS do not count. */
+    public long[] todayStats(long since) {
+        long[] s = new long[3];
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*), SUM(CASE WHEN unit='toman' THEN amount ELSE amount/10 END),"
+                + " SUM(EXISTS(SELECT 1 FROM dels d WHERE d.msg_id=m.id AND d.status=2)) FROM msgs m WHERE at>=? AND skipped=0", args(since))) {
+            if (c.moveToFirst()) for (int i = 0; i < 3; i++) s[i] = c.isNull(i) ? 0 : c.getLong(i);
+        }
+        return s;
     }
 
     public int countFailedSince(long since) {

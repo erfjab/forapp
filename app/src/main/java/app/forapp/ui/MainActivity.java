@@ -132,7 +132,7 @@ public final class MainActivity extends BaseActivity {
         View dot = new View(this);
         dot.setBackground(Ui.fill(this, R.color.red, 99));
         brand.addView(dot, Ui.lp(Ui.dp(this, 8), Ui.dp(this, 8)));
-        TextView name = Ui.text(this, "فورآپ", 17, R.color.fg, Ui.W_BLACK);
+        TextView name = Ui.text(this, "ForApp", 17, R.color.fg, Ui.W_BLACK);
         Ui.pad(name, 8, 0, 6, 0);
         brand.addView(name);
         brandSub = Ui.ellipsize(Ui.text(this, "", 11.5f, R.color.mid, Ui.W_REGULAR));
@@ -241,6 +241,7 @@ public final class MainActivity extends BaseActivity {
             List<Db.Msg> msgs = db.log(filter, LOG_LIMIT);
             List<Db.Dest> ds = db.dests();
             List<String> pr = Forwarder.problems(this);
+            Widget.refresh(this); // permission or on/off may have changed in settings
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
                 all = msgs;
@@ -374,7 +375,7 @@ public final class MainActivity extends BaseActivity {
                     fix = () -> { Prefs.of(this).enabled(true); load(); };
                     break;
                 case "battery":
-                    text = "بهینه‌سازی باتری برای فورآپ روشن است و ممکن است ارسال‌ها دیر انجام شوند.";
+                    text = "بهینه‌سازی باتری برای ForApp روشن است و ممکن است ارسال‌ها دیر انجام شوند.";
                     action = "خاموش کن";
                     fix = this::askBattery;
                     break;
@@ -442,87 +443,104 @@ public final class MainActivity extends BaseActivity {
             startActivity(new Intent(this, DestinationEditActivity.class));
             return;
         }
-        AlertDialog dlg = new AlertDialog.Builder(this).setTitle("ارسال آزمایشی").setMessage("در حال ارسال به " + Fa.d(on.size()) + " مقصد…")
-                .setPositiveButton("بستن", null).show();
-        new Thread(() -> {
-            StringBuilder s = new StringBuilder();
-            for (Db.Dest d : on) {
-                Forwarder.Result r = Forwarder.test(this, d);
-                s.append(r.ok() ? "✓ " : "✕ ").append(d.name).append(" · ")
-                        .append(r.ok() ? Fa.d(r.code) + " · " + Fa.d(r.ms) + " میلی‌ثانیه" : (r.error == null ? "" : r.error)).append("\n");
-            }
-            runOnUiThread(() -> { if (dlg.isShowing()) dlg.setMessage(s.toString().trim()); load(); });
-        }).start();
+        LinearLayout content = Ui.col(this);
+        android.app.Dialog dlg = Ui.sheet(this, content);
+        runTests(content, on);
+        dlg.show();
+    }
+
+    /** Sends a test payload to every destination at once; each card fills in as its answer comes back. */
+    private void runTests(LinearLayout content, List<Db.Dest> on) {
+        content.removeAllViews();
+        LinearLayout head = Ui.rowLayout(this);
+        Ui.pad(head, 2, 14, 2, 2);
+        LinearLayout titles = Ui.col(this);
+        titles.addView(Ui.text(this, "ارسال آزمایشی", 20, R.color.fg, Ui.W_BLACK));
+        TextView summary = Ui.text(this, "در حال ارسال به " + Fa.d(on.size()) + " مقصد…", 12.5f, R.color.mid, Ui.W_REGULAR);
+        titles.addView(summary);
+        head.addView(titles, Ui.weight1());
+        content.addView(head);
+        TextView hint = Ui.text(this, "یک پیامک نمونه با \"test\": true فرستاده می‌شود و در گزارش واریزها ثبت نمی‌شود.", 12, R.color.mid, Ui.W_REGULAR);
+        hint.setLineSpacing(0, 1.25f);
+        Ui.pad(hint, 2, 6, 2, 6);
+        content.addView(hint);
+
+        int[] done = {0, 0}; // answered, ok
+        for (Db.Dest d : on) {
+            LinearLayout card = Ui.col(this);
+            Ui.pad(card, 14, 12, 14, 12);
+            card.setBackground(Ui.outline(this, R.color.faint, 14, 1, false));
+            LinearLayout r = Ui.rowLayout(this);
+            ImageView ic = Ui.icon(this, R.drawable.ic_retry, R.color.mid, 18);
+            r.addView(ic);
+            TextView name = Ui.ellipsize(Ui.text(this, d.name, 14.5f, R.color.fg, Ui.W_BOLD));
+            Ui.pad(name, 8, 0, 8, 0);
+            r.addView(name, Ui.weight1());
+            TextView st = Ui.text(this, "در حال ارسال…", 12.5f, R.color.mid, Ui.W_BOLD);
+            r.addView(st);
+            card.addView(r);
+            TextView url = Ui.ellipsize(Ui.text(this, d.url, 11.5f, R.color.mid, Ui.W_REGULAR));
+            url.setTextDirection(View.TEXT_DIRECTION_LTR);
+            url.setTypeface(android.graphics.Typeface.MONOSPACE);
+            Ui.pad(url, 26, 4, 0, 0);
+            card.addView(url);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            p.topMargin = Ui.dp(this, 10);
+            content.addView(card, p);
+
+            new Thread(() -> {
+                Forwarder.Result res = Forwarder.test(this, d);
+                runOnUiThread(() -> {
+                    done[0]++;
+                    if (res.ok()) done[1]++;
+                    int col = res.ok() ? R.color.fg : R.color.red;
+                    ic.setImageResource(res.ok() ? R.drawable.ic_ok : R.drawable.ic_fail);
+                    ic.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.color(this, col)));
+                    st.setText(res.ok() ? "رسید" : "نرسید");
+                    st.setTextColor(Ui.color(this, col));
+                    LinearLayout stats = Ui.rowLayout(this);
+                    Ui.pad(stats, 26, 8, 0, 0);
+                    if (res.code > 0) stats.addView(pill("HTTP " + Fa.d(res.code), res.ok() ? R.color.mid : R.color.red));
+                    stats.addView(pill(Fa.d(res.ms) + " میلی‌ثانیه", R.color.mid));
+                    card.addView(stats);
+                    if (!res.ok() && res.error != null) {
+                        TextView err = Ui.text(this, Fa.d(res.error), 12, R.color.red, Ui.W_REGULAR);
+                        err.setTextIsSelectable(true);
+                        Ui.pad(err, 10, 6, 10, 6);
+                        err.setBackground(Ui.fill(this, R.color.redbg, 8));
+                        LinearLayout.LayoutParams ep = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                        ep.topMargin = Ui.dp(this, 8);
+                        card.addView(err, ep);
+                    }
+                    if (!res.ok()) card.setBackground(Ui.outline(this, R.color.red, 14, 1, false));
+                    if (done[0] == on.size()) {
+                        summary.setText(Fa.d(done[1]) + " از " + Fa.d(on.size()) + " مقصد پاسخ درست داد");
+                        summary.setTextColor(Ui.color(this, done[1] == on.size() ? R.color.mid : R.color.red));
+                        TextView again = Ui.button(this, "دوباره امتحان کن", false, v -> runTests(content, on));
+                        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                        bp.topMargin = Ui.dp(this, 16);
+                        content.addView(again, bp);
+                        load();
+                    }
+                });
+            }, "forapp-test").start();
+        }
+    }
+
+    private TextView pill(String s, int colorRes) {
+        TextView t = Ui.text(this, s, 11, colorRes, Ui.W_BOLD);
+        Ui.pad(t, 8, 2, 8, 2);
+        t.setBackground(Ui.outline(this, colorRes == R.color.red ? R.color.red : R.color.faint, 99, 1, false));
+        LinearLayout.LayoutParams p = Ui.lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        p.setMarginEnd(Ui.dp(this, 6));
+        t.setLayoutParams(p);
+        return t;
     }
 
     // ---------- one message ----------
 
     private void details(Db.Msg m) {
-        io.execute(() -> {
-            List<Db.Delivery> dels = Db.get(this).deliveries(m.id);
-            runOnUiThread(() -> showDetails(m, dels));
-        });
-    }
-
-    private void showDetails(Db.Msg m, List<Db.Delivery> dels) {
-        LinearLayout v = Ui.col(this);
-        v.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        Ui.pad(v, 24, 20, 24, 8);
-        TextView amt = Ui.ltr(Ui.text(this, Ui.amount(this, m.amount), 30, R.color.fg, Ui.W_BLACK));
-        amt.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
-        amt.setTextDirection(View.TEXT_DIRECTION_RTL);
-        v.addView(amt);
-        v.addView(Ui.text(this, (m.bank == null ? "" : m.bank + " · ") + m.sender, 13, R.color.mid, Ui.W_REGULAR));
-        v.addView(Ui.text(this, Fa.full(m.at, tz), 13, R.color.mid, Ui.W_REGULAR));
-
-        TextView sec = Ui.text(this, "ارسال", 11, R.color.mid, Ui.W_BOLD);
-        Ui.pad(sec, 0, 18, 0, 4);
-        v.addView(sec);
-        if (m.skipped) v.addView(Ui.text(this, "ارسال نشد: این پیامک واریز تشخیص داده نشد.", 13.5f, R.color.fg, Ui.W_REGULAR));
-        else if (dels.isEmpty()) v.addView(Ui.text(this, "هیچ مقصد فعالی پیامک این بانک را نمی‌گیرد.", 13.5f, R.color.fg, Ui.W_REGULAR));
-        for (Db.Delivery d : dels) {
-            String st;
-            int col = R.color.fg;
-            switch (d.status) {
-                case Db.SENT: st = "رسید · " + Fa.d(d.code == null ? "" : d.code) + " · " + Fa.time(d.updatedAt, tz); break;
-                case Db.FAILED: st = "ناموفق بعد از " + Fa.d(d.attempts) + " تلاش · " + (d.error == null ? "" : Fa.d(d.error)); col = R.color.red; break;
-                case Db.SENDING: st = "در حال ارسال…"; break;
-                default: st = d.attempts == 0 && d.error == null ? "در صف ارسال" : "تلاش بعدی " + Fa.time(d.nextAt, tz) + (d.error == null ? "" : " · " + Fa.d(d.error)); col = R.color.red;
-            }
-            LinearLayout r = Ui.rowLayout(this);
-            Ui.pad(r, 0, 6, 0, 6);
-            r.addView(Ui.text(this, d.dest, 13.5f, R.color.fg, Ui.W_BOLD));
-            TextView s = Ui.text(this, st, 12.5f, col, Ui.W_REGULAR);
-            Ui.pad(s, 10, 0, 0, 0);
-            r.addView(s, Ui.weight1());
-            v.addView(r);
-        }
-
-        TextView sec2 = Ui.text(this, "متن پیامک", 11, R.color.mid, Ui.W_BOLD);
-        Ui.pad(sec2, 0, 18, 0, 4);
-        v.addView(sec2);
-        TextView body = Ui.text(this, m.body, 13.5f, R.color.fg, Ui.W_REGULAR);
-        body.setTextIsSelectable(true);
-        body.setLineSpacing(0, 1.25f);
-        v.addView(body);
-
-        ScrollView sv = new ScrollView(this);
-        sv.addView(v);
-        boolean canResend = m.skipped || m.failed > 0;
-        AlertDialog.Builder bld = new AlertDialog.Builder(this).setView(sv).setPositiveButton("بستن", null)
-                .setNeutralButton("کپی متن", (d, w) -> {
-                    getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("sms", m.body));
-                    Ui.toast(this, "کپی شد");
-                });
-        if (canResend) {
-            bld.setNegativeButton(m.skipped ? "ارسال دستی" : "ارسال دوباره", (d, w) -> io.execute(() -> {
-                Db.get(this).resend(m);
-                List<Long> ids = new ArrayList<>();
-                ids.add(m.id);
-                Forwarder.sendNow(this, ids, 15_000);
-            }));
-        }
-        bld.show();
+        new DetailsSheet(this, m.id, io, tz).show();
     }
 
     // ---------- sticky day header ----------

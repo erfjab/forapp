@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview of widget_strip.xml with sample numbers. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/s_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="4dp"
+        android:background="@drawable/widget_bg"
+        android:gravity="center_vertical"
+        android:layoutDirection="rtl"
+        android:orientation="horizontal"
+        android:paddingStart="18dp"
+        android:paddingEnd="18dp">
+
+        <!-- normal and empty -->
+        <LinearLayout
+            android:id="@+id/s_stats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/s_count"
+                    android:text="۲۴"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_black"
+                    android:includeFontPadding="false"
+                    android:textColor="@color/fg"
+                    android:textSize="32sp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_regular"
+                    android:text="واریز امروز"
+                    android:textColor="@color/mid"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="1dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/widget_sep" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/s_sum"
+                    android:text="۱۸٬۷۴۰٬۵۰۰"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/vazir_bold"
+                    android:maxLines="1"
+                    android:textColor="@color/fg"
+                    android:textSize="15sp" />
+                <TextView
+                    android:id="@+id/s_sumcap"
+                    android:text="تومان"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_regular"
+                    android:maxLines="1"
+                    android:textColor="@color/mid"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/s_sep2"
+                android:layout_width="1dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="14dp"
+                android:background="@drawable/widget_sep" />
+
+            <LinearLayout
+                android:id="@+id/s_failbox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:minWidth="44dp"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/s_fail"
+                    android:text="۲"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_black"
+                    android:includeFontPadding="false"
+                    android:textColor="@color/red"
+                    android:textSize="20sp" />
+                <TextView
+                    android:id="@+id/s_failcap"
+                    android:text="ناموفق"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_regular"
+                    android:textColor="@color/red"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- off, or no SMS permission -->
+        <LinearLayout
+            android:id="@+id/s_off"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <ImageView
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:src="@drawable/widget_off_dot" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_black"
+                    android:text="فوروارد خاموش است"
+                    android:textColor="@color/fg"
+                    android:textSize="14sp" />
+                <TextView
+                    android:id="@+id/s_offsub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/vazir_regular"
+                    android:textColor="@color/mid"
+                    android:textSize="10sp" />
+            </LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/s_offbtn"
+                android:background="@drawable/widget_pill"
+                android:fontFamily="@font/vazir_bold"
+                android:paddingLeft="14dp"
+                android:paddingTop="5dp"
+                android:paddingRight="14dp"
+                android:paddingBottom="5dp"
+                android:textColor="@color/bg"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

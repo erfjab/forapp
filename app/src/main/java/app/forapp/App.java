@@ -9,6 +9,7 @@ public final class App extends Application {
     public void onCreate() {
         super.onCreate();
         Forwarder.createChannel(this);
+        Forwarder.watchNetwork(this);
         new Thread(() -> {
             Forwarder.cleanup(this);
             Forwarder.schedule(this);

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview of widget.xml with sample numbers. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/w_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:id="@+id/w_card"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="6dp"
+        android:background="@drawable/widget_bg"
+        android:gravity="center_vertical"
+        android:layoutDirection="rtl"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="14dp">
+
+        <TextView
+            android:id="@+id/w_count"
+            android:text="۲۴"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/vazir_black"
+            android:includeFontPadding="false"
+            android:textColor="@color/fg"
+            android:textSize="38sp" />
+
+        <TextView
+            android:id="@+id/w_zero"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@drawable/widget_zero"
+            android:fontFamily="@font/vazir_black"
+            android:gravity="center"
+            android:text="۰"
+            android:textColor="@color/thumb_off"
+            android:textSize="20sp"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/w_off"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:src="@drawable/widget_off_dot"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/w_line1"
+                android:text="۱۸٬۷۴۰٬۵۰۰"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/vazir_bold"
+                android:maxLines="1"
+                android:textColor="@color/fg"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/w_line2"
+                android:text="تومان امروز"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/vazir_regular"
+                android:maxLines="1"
+                android:textColor="@color/mid"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_badge"
+        android:text="۲"
+        android:layout_width="wrap_content"
+        android:layout_height="22dp"
+        android:layout_gravity="top|left"
+        android:background="@drawable/widget_badge"
+        android:fontFamily="@font/vazir_black"
+        android:gravity="center"
+        android:minWidth="22dp"
+        android:paddingLeft="6dp"
+        android:paddingRight="6dp"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:visibility="visible" />
+</FrameLayout>

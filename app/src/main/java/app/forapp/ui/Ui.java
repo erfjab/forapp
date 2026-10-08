@@ -153,10 +153,11 @@ final class Ui {
     static Switch toggle(Context c, boolean on) {
         Switch s = new Switch(c);
         s.setChecked(on);
-        int fg = color(c, R.color.fg), faint = color(c, R.color.faint), bg = color(c, R.color.bg);
+        // On: a solid fg thumb on a half-tone fg track (black in light mode, white in dark). Off: grey on grey.
+        int fg = color(c, R.color.fg);
         int[][] states = {{android.R.attr.state_checked}, {}};
-        s.setThumbTintList(new ColorStateList(states, new int[]{bg, bg}));
-        s.setTrackTintList(new ColorStateList(states, new int[]{fg, faint}));
+        s.setThumbTintList(new ColorStateList(states, new int[]{fg, color(c, R.color.thumb_off)}));
+        s.setTrackTintList(new ColorStateList(states, new int[]{(fg & 0x00FFFFFF) | 0x66000000, color(c, R.color.track_off)}));
         s.setTrackTintMode(android.graphics.PorterDuff.Mode.SRC);
         return s;
     }
@@ -252,6 +253,49 @@ final class Ui {
 
     static void toast(Context c, String s) {
         Toast.makeText(c, s, Toast.LENGTH_SHORT).show();
+    }
+
+    /** A bottom sheet with rounded top corners and a handle; {@code content} scrolls and is at most 88% of the screen. */
+    static android.app.Dialog sheet(Activity a, LinearLayout content) {
+        android.app.Dialog dialog = new android.app.Dialog(a);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        content.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        pad(content, 22, 8, 22, 22);
+        android.widget.ScrollView sv = new android.widget.ScrollView(a) {
+            @Override
+            protected void onMeasure(int w, int h) {
+                int max = (int) (getResources().getDisplayMetrics().heightPixels * 0.88f);
+                super.onMeasure(w, MeasureSpec.makeMeasureSpec(max, MeasureSpec.AT_MOST));
+            }
+        };
+        sv.setVerticalScrollBarEnabled(false);
+        sv.addView(content);
+
+        LinearLayout box = col(a);
+        GradientDrawable bg = fill(a, R.color.bg, 0);
+        float r = dp(a, 22);
+        bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        box.setBackground(bg);
+        box.setClipToOutline(true);
+        View handle = new View(a);
+        handle.setBackground(fill(a, R.color.faint, 99));
+        LinearLayout.LayoutParams hp = lp(dp(a, 36), dp(a, 4));
+        hp.gravity = Gravity.CENTER_HORIZONTAL;
+        hp.topMargin = dp(a, 10);
+        box.addView(handle, hp);
+        box.addView(sv, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        dialog.setContentView(box);
+
+        android.view.Window w = dialog.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            w.setGravity(Gravity.BOTTOM);
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.setDimAmount(0.45f);
+            w.setWindowAnimations(android.R.style.Animation_InputMethod);
+        }
+        return dialog;
     }
 
     static void confirm(Activity a, String title, String msg, String yes, Runnable onYes) {

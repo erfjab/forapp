@@ -16,8 +16,9 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="فورآپ"
+        android:label="ForApp"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.ForApp"
         android:dataExtractionRules="@xml/no_backup"
         android:fullBackupContent="false">
@@ -51,6 +52,20 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
+        </receiver>
+
+        <receiver android:name=".ui.Widget$Strip" android:exported="false" android:label="ForApp · نوار">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_strip_info" />
+        </receiver>
+
+        <receiver android:name=".ui.Widget" android:exported="false" android:label="ForApp · جمع‌وجور">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
         </receiver>
 
         <service

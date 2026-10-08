@@ -51,6 +51,8 @@ public final class Forwarder {
     private static final String CHANNEL = "failures";
     private static final Set<Runnable> listeners = new CopyOnWriteArraySet<>();
     private static Handler main;
+    private static Context appCtx; // set once in App.onCreate (watchNetwork), used to redraw the home-screen widget
+    private static final java.util.concurrent.ExecutorService widgetIo = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     // ---------- UI refresh ----------
 
@@ -60,12 +62,13 @@ public final class Forwarder {
     public static synchronized void changed() {
         if (main == null) main = new Handler(Looper.getMainLooper());
         main.post(() -> { for (Runnable r : listeners) r.run(); });
+        if (appCtx != null) widgetIo.execute(() -> app.forapp.ui.Widget.refresh(appCtx));
     }
 
     // ---------- sending ----------
 
     public static final class Result {
-        public final int code;      // HTTP status, or 0 when no response
+        public final int code;      // HTTP status; 0 when the server could not be reached, -1 when the address itself is wrong
         public final String error;  // null on success
         public final long ms;
 
@@ -129,15 +132,71 @@ public final class Forwarder {
         long now = System.currentTimeMillis();
         if (r.ok()) {
             db.finishDelivery(d.id, Db.SENT, d.attempts + 1, now, r.code, null);
-        } else if (r.retryable() && !online(c)) {
-            // Offline is not the server's fault: wait for the network without using up an attempt.
-            db.finishDelivery(d.id, Db.PENDING, d.attempts, now, r.code == 0 ? null : r.code, "بدون اینترنت");
+        } else if (r.code == 0) {
+            // No answer at all: no internet, VPN off or the address is filtered. That is not the server's fault,
+            // so no attempt is used up; retry every minute, and right away when the network changes (watchNetwork).
+            db.finishDelivery(d.id, Db.PENDING, d.attempts, online(c) ? now + UNREACHABLE_RETRY_MS : now, null, reason(c, r));
         } else if (r.retryable() && d.attempts + 1 < prefs.maxAttempts()) {
-            db.finishDelivery(d.id, Db.PENDING, d.attempts + 1, now + backoffMs(d.attempts + 1), r.code == 0 ? null : r.code, r.error);
+            db.finishDelivery(d.id, Db.PENDING, d.attempts + 1, now + backoffMs(d.attempts + 1), r.code > 0 ? r.code : null, r.error);
         } else {
-            db.finishDelivery(d.id, Db.FAILED, d.attempts + 1, now, r.code == 0 ? null : r.code, r.error);
+            db.finishDelivery(d.id, Db.FAILED, d.attempts + 1, now, r.code > 0 ? r.code : null, r.error);
             notifyFailure(c, dest, m, r);
         }
+    }
+
+    /** How often a delivery that could not reach its server at all is tried again. */
+    public static final long UNREACHABLE_RETRY_MS = 60_000L;
+
+    /** Error text for the log; "no connection" problems read differently from server errors. */
+    private static String reason(Context c, Result r) {
+        if (r.code != 0) return r.error;
+        if (!online(c)) return "بدون اینترنت";
+        return "بدون اتصال به مقصد" + (r.error == null ? "" : " · " + r.error);
+    }
+
+    /**
+     * Manual "send now" from the details sheet: one try right away, outside the automatic schedule.
+     * A failure leaves the delivery's status, attempts and next try as they were. Returns null if it is being sent already.
+     */
+    public static Result sendOne(Context c, long deliveryId) {
+        Db db = Db.get(c);
+        Db.Delivery d = db.claimOne(deliveryId, System.currentTimeMillis());
+        if (d == null) return null;
+        Db.Dest dest = db.dest(d.destId);
+        Db.Msg m = db.message(d.msgId);
+        Result r;
+        if (dest == null || m == null) {
+            r = new Result(0, "مقصد حذف شده", 0);
+            db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, r.error);
+        } else {
+            r = post(dest, payload(c, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
+            if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
+            if (r.ok()) db.finishDelivery(d.id, Db.SENT, d.attempts + 1, System.currentTimeMillis(), r.code, null);
+            else db.finishDelivery(d.id, d.status == Db.SENDING ? Db.PENDING : d.status, d.attempts, d.nextAt,
+                    r.code > 0 ? r.code : null, reason(c, r));
+        }
+        schedule(c);
+        changed();
+        return r;
+    }
+
+    /** When the phone gets a new default network (VPN turned on, Wi-Fi back), retry what could not reach its server. */
+    public static void watchNetwork(Context c) {
+        appCtx = c.getApplicationContext();
+        ConnectivityManager cm = c.getSystemService(ConnectivityManager.class);
+        if (cm == null) return;
+        Context app = c.getApplicationContext();
+        cm.registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network n) {
+                new Thread(() -> {
+                    if (Db.get(app).wakeUnreachable(System.currentTimeMillis()) > 0) {
+                        schedule(app);
+                        changed();
+                    }
+                }, "forapp-net").start();
+            }
+        });
     }
 
     /** 15s, 30s, 1m, 2m … capped at 30 minutes. */
@@ -194,8 +253,8 @@ public final class Forwarder {
             return new Result(0, "مهلت پاسخ سرور تمام شد", System.currentTimeMillis() - t0);
         } catch (java.net.UnknownHostException e) {
             return new Result(0, "آدرس سرور پیدا نشد", System.currentTimeMillis() - t0);
-        } catch (java.net.MalformedURLException e) {
-            return new Result(400, "آدرس وبهوک درست نیست", System.currentTimeMillis() - t0);
+        } catch (java.net.MalformedURLException | ClassCastException e) { // ClassCast: not an http(s) address
+            return new Result(-1, "آدرس وبهوک درست نیست", System.currentTimeMillis() - t0);
         } catch (Exception e) {
             return new Result(0, e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()),
                     System.currentTimeMillis() - t0);
@@ -210,7 +269,7 @@ public final class Forwarder {
         m.uid = "test-" + java.util.UUID.randomUUID();
         m.sender = "ForApp";
         m.bank = "آزمایشی";
-        m.body = "پیامک آزمایشی فورآپ\nواریز: 1,000,123 ریال";
+        m.body = "پیامک آزمایشی ForApp\nواریز: 1,000,123 ریال";
         m.amount = 1_000_123L;
         m.unit = "rial";
         m.deposit = true;
