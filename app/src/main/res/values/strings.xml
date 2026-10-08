@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_desc">واریزهای امروز، جمع مبلغ و ارسال‌های ناموفق</string>
+    <string name="widget_desc">Deposits today, total and failed sends</string>
 </resources>

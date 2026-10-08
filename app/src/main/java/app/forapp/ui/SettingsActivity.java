@@ -22,6 +22,7 @@ import app.forapp.core.Db;
 import app.forapp.core.Fa;
 import app.forapp.core.Forwarder;
 import app.forapp.core.Prefs;
+import app.forapp.core.Updater;
 
 public final class SettingsActivity extends BaseActivity {
     private LinearLayout list;
@@ -100,6 +101,13 @@ public final class SettingsActivity extends BaseActivity {
                     Ui.toast(this, "لاگ پاک شد");
                 }));
 
+        add(Ui.section(this, "ویجت"));
+        link("افزودن ویجت جمع‌وجور", "۲×۱", R.color.mid, "تعداد و مبلغ واریزهای امروز", () -> pinWidget(Widget.class));
+        link("افزودن ویجت نوار", "۴×۱", R.color.mid, "واریزها، مبلغ و ناموفق‌ها در یک نوار", () -> pinWidget(Widget.Strip.class));
+
+        add(Ui.section(this, "برنامه"));
+        link("به‌روزرسانی", "بررسی", R.color.fg, "نسخه‌ی فعلی " + Fa.d(versionName()), this::checkUpdate);
+
         TextView ver = Ui.text(this, "ForApp نسخه‌ی " + Fa.d(versionName()) + " · همه‌ی داده‌ها فقط روی همین گوشی است · تم مثل گوشی",
                 11.5f, R.color.mid, Ui.W_REGULAR);
         Ui.pad(ver, 20, 24, 20, 32);
@@ -135,6 +143,101 @@ public final class SettingsActivity extends BaseActivity {
                 build();
             }).show();
         });
+    }
+
+    /** Asks the launcher to place the widget; it shows its own "Add to home screen" dialog. */
+    private void pinWidget(Class<?> provider) {
+        android.appwidget.AppWidgetManager m = android.appwidget.AppWidgetManager.getInstance(this);
+        if (!m.isRequestPinAppWidgetSupported()
+                || !m.requestPinAppWidget(new android.content.ComponentName(this, provider), null, null)) {
+            Ui.toast(this, "این لانچر افزودن مستقیم را پشتیبانی نمی‌کند؛ از منوی ویجت‌های صفحه‌ی اصلی اضافه کنید");
+        }
+    }
+
+    // ---------- update ----------
+
+    /** Asks GitHub for the latest release; if it is newer, offers to download and install it in a sheet. */
+    private void checkUpdate() {
+        LinearLayout content = Ui.col(this);
+        android.app.Dialog sheet = Ui.sheet(this, content);
+        TextView title = Ui.text(this, "به‌روزرسانی", 20, R.color.fg, Ui.W_BLACK);
+        Ui.pad(title, 2, 14, 2, 2);
+        content.addView(title);
+        TextView status = Ui.text(this, "در حال بررسی…", 13, R.color.mid, Ui.W_REGULAR);
+        status.setLineSpacing(0, 1.3f);
+        Ui.pad(status, 2, 6, 2, 6);
+        content.addView(status);
+        sheet.show();
+
+        int mine = versionCode();
+        new Thread(() -> {
+            Updater.Release r;
+            try {
+                r = Updater.latest();
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    status.setText("به سرور به‌روزرسانی (گیت‌هاب) وصل نشد. اینترنت یا فیلترشکن را بررسی کنید.\n" + Fa.d(String.valueOf(e.getMessage())));
+                    status.setTextColor(Ui.color(this, R.color.red));
+                });
+                return;
+            }
+            runOnUiThread(() -> {
+                if (r == null || r.code <= mine) {
+                    status.setText("آخرین نسخه را دارید · " + Fa.d(versionName()));
+                    return;
+                }
+                status.setText("نسخه‌ی " + Fa.d(r.name) + " آماده است. نسخه‌ی شما " + Fa.d(versionName()) + "."
+                        + (r.size > 0 ? "\nحجم " + Fa.d(r.size / 1024) + " کیلوبایت" : ""));
+                status.setTextColor(Ui.color(this, R.color.fg));
+                if (!r.notes.isEmpty()) {
+                    TextView notes = Ui.text(this, r.notes, 12.5f, R.color.mid, Ui.W_REGULAR);
+                    notes.setLineSpacing(0, 1.3f);
+                    Ui.pad(notes, 14, 10, 14, 10);
+                    notes.setBackground(Ui.fill(this, R.color.line, 12));
+                    content.addView(notes);
+                }
+                TextView go = Ui.button(this, "دانلود و نصب", true, null);
+                go.setOnClickListener(v -> downloadAndInstall(r, go, status));
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                p.topMargin = Ui.dp(this, 14);
+                content.addView(go, p);
+            });
+        }, "forapp-update").start();
+    }
+
+    private void downloadAndInstall(Updater.Release r, TextView button, TextView status) {
+        if (!getPackageManager().canRequestPackageInstalls()) {
+            // One-time: Android asks the user to let ForApp install updates.
+            Ui.toast(this, "اجازه‌ی نصب را بدهید و برگردید");
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        button.setEnabled(false);
+        button.setAlpha(0.5f);
+        new Thread(() -> {
+            try {
+                java.io.File apk = Updater.download(this, r, (done, total) -> runOnUiThread(() ->
+                        button.setText(total > 0 ? "در حال دانلود " + Fa.d(done * 100 / total) + "٪" : "در حال دانلود…")));
+                runOnUiThread(() -> button.setText("در حال نصب…"));
+                Updater.install(this, apk);
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    status.setText("دانلود نشد: " + Fa.d(String.valueOf(e.getMessage())));
+                    status.setTextColor(Ui.color(this, R.color.red));
+                    button.setEnabled(true);
+                    button.setAlpha(1f);
+                    button.setText("دوباره امتحان کن");
+                });
+            }
+        }, "forapp-download").start();
+    }
+
+    private int versionCode() {
+        try {
+            return (int) getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private void appInfo() {

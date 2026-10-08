@@ -662,13 +662,13 @@ public final class MainActivity extends BaseActivity {
         time.setText(Fa.time(m.at, tz));
         amt.setText(Ui.amount(this, m.amount));
         amt.setAlpha(m.skipped || m.total == 0 ? 0.45f : 1f);
-        String b = m.bank == null ? m.sender : m.bank;
+        String b = Ui.iso(m.bank == null ? m.sender : m.bank);
         int icon, tint = R.color.mid, bankColor = R.color.mid, bg = R.color.bg;
         if (m.skipped) { b += " · واریز تشخیص داده نشد"; icon = R.drawable.ic_dash; }
         else if (m.total == 0) { b += " · بدون مقصد"; icon = R.drawable.ic_dash; }
-        else if (m.failed > 0) { b += " · به " + m.dests + " نرسید"; icon = R.drawable.ic_fail; tint = R.color.red; bankColor = R.color.red; bg = R.color.redbg; }
+        else if (m.failed > 0) { b += " · به " + Ui.iso(m.dests) + " نرسید"; icon = R.drawable.ic_fail; tint = R.color.red; bankColor = R.color.red; bg = R.color.redbg; }
         else if (m.pending > 0) { b += " · در صف ارسال"; icon = R.drawable.ic_retry; }
-        else { b += " → " + m.dests; icon = R.drawable.ic_ok; }
+        else { b += " ← " + Ui.iso(m.dests); icon = R.drawable.ic_ok; }
         bank.setText(b);
         bank.setTextColor(Ui.color(this, bankColor));
         st.setImageResource(icon);

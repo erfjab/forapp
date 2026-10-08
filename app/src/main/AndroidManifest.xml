@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".App"
@@ -54,19 +55,21 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".ui.Widget$Strip" android:exported="false" android:label="ForApp · نوار">
+        <receiver android:name=".ui.Widget$Strip" android:exported="false" android:label="ForApp Strip">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_strip_info" />
         </receiver>
 
-        <receiver android:name=".ui.Widget" android:exported="false" android:label="ForApp · جمع‌وجور">
+        <receiver android:name=".ui.Widget" android:exported="false" android:label="ForApp Compact">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
         </receiver>
+
+        <receiver android:name=".core.InstallReceiver" android:exported="false" />
 
         <service
             android:name=".core.SendJob"

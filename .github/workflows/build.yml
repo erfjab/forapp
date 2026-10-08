@@ -2,6 +2,8 @@ name: Build APK
 on:
   push:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,8 +14,28 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew --no-daemon testDebugUnitTest assembleRelease
+      # The fixed release key lives in repository secrets, so every build can be installed over the previous one.
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.FORAPP_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.FORAPP_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > forapp-release.p12
+            printf 'storeFile=forapp-release.p12\nstorePassword=%s\nkeyAlias=forapp\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
+          fi
+      - run: chmod +x gradlew && ./gradlew --no-daemon -PversionCode=${{ github.run_number }} testDebugUnitTest assembleRelease
+      - run: mv app/build/outputs/apk/release/app-release.apk ForApp-1.0.${{ github.run_number }}.apk
       - uses: actions/upload-artifact@v4
         with:
           name: forapp-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: ForApp-*.apk
+      # Every build of master becomes a release; the app's "check for update" reads the latest one.
+      - name: Release
+        if: github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" ForApp-1.0.${{ github.run_number }}.apk \
+            --title "ForApp 1.0.${{ github.run_number }}" \
+            --notes "$(git log -1 --format=%B)"

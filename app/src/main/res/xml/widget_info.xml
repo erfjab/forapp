@@ -4,7 +4,7 @@
     android:initialLayout="@layout/widget"
     android:minWidth="110dp"
     android:minHeight="40dp"
-    android:previewLayout="@layout/widget_preview"
+    android:previewImage="@drawable/widget_preview_compact"
     android:resizeMode="horizontal"
     android:targetCellWidth="2"
     android:targetCellHeight="1"

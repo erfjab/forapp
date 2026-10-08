@@ -65,6 +65,14 @@ final class Ui {
         return t;
     }
 
+    /**
+     * Wraps user-given text (a destination or bank name, a sender) in a Unicode isolate, so English words and
+     * digits inside it keep their own order and never pull the surrounding Persian sentence out of place.
+     */
+    static String iso(String s) {
+        return s == null ? "" : "⁨" + s + "⁩";
+    }
+
     static TextView ellipsize(TextView t) {
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
