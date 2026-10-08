@@ -528,6 +528,7 @@ public final class MainActivity extends BaseActivity {
     // ---------- sticky day header ----------
 
     private void updateSticky(int first) {
+        if (sticky == null) return; // setOnScrollListener calls onScroll before sticky exists
         int idx = first - list.getHeaderViewsCount();
         if (idx < 0 || adapter.items.isEmpty()) {
             sticky.setVisibility(View.GONE);
