@@ -178,7 +178,7 @@ public final class SettingsActivity extends BaseActivity {
         content.addView(status);
         sheet.show();
 
-        int mine = versionCode();
+        String mine = versionName();
         new Thread(() -> {
             Updater.Release r;
             try {
@@ -191,7 +191,7 @@ public final class SettingsActivity extends BaseActivity {
                 return;
             }
             runOnUiThread(() -> {
-                if (r == null || r.code <= mine) {
+                if (r == null || !Updater.newer(r.name, mine)) {
                     status.setText("آخرین نسخه را دارید · " + Fa.d(versionName()));
                     return;
                 }
@@ -239,14 +239,6 @@ public final class SettingsActivity extends BaseActivity {
                 });
             }
         }, "forapp-download").start();
-    }
-
-    private int versionCode() {
-        try {
-            return (int) getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
-        } catch (Exception e) {
-            return 0;
-        }
     }
 
     private void appInfo() {

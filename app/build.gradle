@@ -10,9 +10,9 @@ android {
         applicationId "app.forapp"
         minSdk 26
         targetSdk 35
-        // CI passes -PversionCode=<run number>; the update check compares it with the latest release.
+        // CI passes -PversionCode=<run number> and, for a release, -PversionName from the v* tag.
         versionCode Integer.parseInt((project.findProperty("versionCode") ?: "1").toString())
-        versionName "1.0.${versionCode}"
+        versionName((project.findProperty("versionName") ?: "1.1.0-dev").toString())
     }
 
     signingConfigs {

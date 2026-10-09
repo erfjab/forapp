@@ -19,7 +19,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Manual update: every build of master is published as a GitHub release named v1.0.&lt;versionCode&gt;.
+ * Manual update: each version is published as a GitHub release tagged v&lt;version&gt; (v1.1.0 …).
  * The app reads the latest one, downloads its APK and hands it to the system installer.
  */
 public final class Updater {
@@ -28,9 +28,22 @@ public final class Updater {
     private static final String LATEST = "https://api.github.com/repos/erfjab/forapp/releases/latest";
 
     public static final class Release {
-        public int code;
         public String name, notes, url;
         public long size;
+    }
+
+    /** True when version {@code a} is newer than {@code b}: "1.1.0" > "1.0.21"; a "-dev" suffix is ignored. */
+    public static boolean newer(String a, String b) {
+        String[] x = a.split("-")[0].split("\\."), y = b.split("-")[0].split("\\.");
+        for (int i = 0; i < Math.max(x.length, y.length); i++) {
+            int p = i < x.length ? num(x[i]) : 0, q = i < y.length ? num(y[i]) : 0;
+            if (p != q) return p > q;
+        }
+        return false;
+    }
+
+    private static int num(String s) {
+        try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return 0; }
     }
 
     public interface Progress { void on(long done, long total); }
@@ -46,7 +59,6 @@ public final class Updater {
             JSONObject o = new JSONObject(read(h.getInputStream()));
             String tag = o.getString("tag_name");
             Release r = new Release();
-            r.code = Integer.parseInt(tag.substring(tag.lastIndexOf('.') + 1));
             r.name = tag.startsWith("v") ? tag.substring(1) : tag;
             r.notes = o.optString("body", "").trim();
             JSONArray assets = o.getJSONArray("assets");

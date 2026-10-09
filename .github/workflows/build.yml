@@ -1,6 +1,8 @@
 name: Build APK
 on:
   push:
+    branches: [master]
+    tags: ["v*"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -24,18 +26,19 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > forapp-release.p12
             printf 'storeFile=forapp-release.p12\nstorePassword=%s\nkeyAlias=forapp\nkeyPassword=%s\n' "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > keystore.properties
           fi
-      - run: chmod +x gradlew && ./gradlew --no-daemon -PversionCode=${{ github.run_number }} testDebugUnitTest assembleRelease
-      - run: mv app/build/outputs/apk/release/app-release.apk ForApp-1.0.${{ github.run_number }}.apk
+      # A v1.2.3 tag builds version 1.2.3; any other build is a dev build.
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "NAME=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV; else echo "NAME=1.1.0-dev.${{ github.run_number }}" >> $GITHUB_ENV; fi
+      - run: chmod +x gradlew && ./gradlew --no-daemon -PversionCode=${{ github.run_number }} -PversionName=$NAME testDebugUnitTest assembleRelease
+      - run: mv app/build/outputs/apk/release/app-release.apk ForApp-$NAME.apk
       - uses: actions/upload-artifact@v4
         with:
           name: forapp-apk
           path: ForApp-*.apk
-      # Every build of master becomes a release; the app's "check for update" reads the latest one.
+      # Pushing a v* tag publishes a release; the app's "check for update" reads the latest one.
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "v1.0.${{ github.run_number }}" ForApp-1.0.${{ github.run_number }}.apk \
-            --title "ForApp 1.0.${{ github.run_number }}" \
-            --notes "$(git log -1 --format=%B)"
+        run: gh release create "$GITHUB_REF_NAME" ForApp-$NAME.apk --title "فوراپ $NAME" --notes-file .github/release-notes.md
