@@ -105,7 +105,7 @@ public final class Db extends SQLiteOpenHelper {
         public long at;
         // aggregated delivery state, filled by log()
         public int total, sent, failed, pending;
-        public String dests = "";
+        public String dests = "", failedDests = ""; // every destination, and only the ones that failed
     }
 
     public static final class Delivery {
@@ -331,7 +331,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private static final String MSG_SELECT = "SELECT m.id, m.uid, m.sender, m.bank_id, m.bank, m.body, m.amount, m.unit, m.deposit, m.skipped, m.at,"
-            + " COUNT(d.id), SUM(d.status=1), SUM(d.status=2), SUM(d.status IN (0,3)), GROUP_CONCAT(d.dest, '، ')"
+            + " COUNT(d.id), SUM(d.status=1), SUM(d.status=2), SUM(d.status IN (0,3)), GROUP_CONCAT(d.dest, '، '), GROUP_CONCAT(CASE WHEN d.status=2 THEN d.dest END, '، ')"
             + " FROM msgs m LEFT JOIN dels d ON d.msg_id = m.id";
 
     private static Msg readMsg(Cursor c) {
@@ -352,6 +352,7 @@ public final class Db extends SQLiteOpenHelper {
         m.failed = c.getInt(13);
         m.pending = c.getInt(14);
         m.dests = c.isNull(15) ? "" : c.getString(15);
+        m.failedDests = c.isNull(16) ? "" : c.getString(16);
         return m;
     }
 
