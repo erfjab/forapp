@@ -61,7 +61,7 @@ public final class SettingsActivity extends BaseActivity {
         PowerManager pm = getSystemService(PowerManager.class);
         boolean batteryOk = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
         link("بهینه‌سازی باتری", batteryOk ? "خاموش است" : "روشن است", batteryOk ? R.color.fg : R.color.red,
-                batteryOk ? "ForApp در حالت خواب گوشی هم اینترنت دارد" : "خاموشش کنید تا ارسال‌ها در حالت خواب گوشی دیر نشوند",
+                batteryOk ? "فوراپ در حالت خواب گوشی هم اینترنت دارد" : "خاموشش کنید تا ارسال‌ها در حالت خواب گوشی دیر نشوند",
                 () -> {
                     try {
                         startActivity(new Intent(batteryOk ? Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
@@ -111,9 +111,10 @@ public final class SettingsActivity extends BaseActivity {
         link("افزودن ویجت نوار", "۴×۱", R.color.mid, "واریزها، مبلغ و ناموفق‌ها در یک نوار", () -> pinWidget(Widget.Strip.class));
 
         add(Ui.section(this, "برنامه"));
+        link("معرفی و راه‌اندازی", "", R.color.mid, "صفحه‌های معرفی و قدم‌های راه‌اندازی، دوباره", () -> startActivity(new Intent(this, OnboardingActivity.class)));
         link("به‌روزرسانی", "بررسی", R.color.fg, "نسخه‌ی فعلی " + Fa.d(versionName()), this::checkUpdate);
 
-        TextView ver = Ui.text(this, "ForApp نسخه‌ی " + Fa.d(versionName()) + " · همه‌ی داده‌ها فقط روی همین گوشی است · تم مثل گوشی",
+        TextView ver = Ui.text(this, "فوراپ نسخه‌ی " + Fa.d(versionName()) + " · همه‌ی داده‌ها فقط روی همین گوشی است · تم مثل گوشی",
                 11.5f, R.color.mid, Ui.W_REGULAR);
         Ui.pad(ver, 20, 24, 20, 32);
         add(Ui.hairline(this, R.color.line));

@@ -71,6 +71,7 @@ public final class MainActivity extends BaseActivity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         buildHeader();
+        if (b == null && !Prefs.of(this).onboarded()) startActivity(new Intent(this, OnboardingActivity.class));
         FrameLayout body = body();
         list = new ListView(this);
         list.setDivider(null);
@@ -132,7 +133,7 @@ public final class MainActivity extends BaseActivity {
         View dot = new View(this);
         dot.setBackground(Ui.fill(this, R.color.red, 99));
         brand.addView(dot, Ui.lp(Ui.dp(this, 8), Ui.dp(this, 8)));
-        TextView name = Ui.text(this, "ForApp", 17, R.color.fg, Ui.W_BLACK);
+        TextView name = Ui.text(this, "فوراپ", 17, R.color.fg, Ui.W_BLACK);
         Ui.pad(name, 8, 0, 6, 0);
         brand.addView(name);
         brandSub = Ui.ellipsize(Ui.text(this, "", 11.5f, R.color.mid, Ui.W_REGULAR));
@@ -372,7 +373,7 @@ public final class MainActivity extends BaseActivity {
                     fix = () -> { Prefs.of(this).enabled(true); load(); };
                     break;
                 case "battery":
-                    text = "بهینه‌سازی باتری برای ForApp روشن است و ممکن است ارسال‌ها دیر انجام شوند.";
+                    text = "بهینه‌سازی باتری برای فوراپ روشن است و ممکن است ارسال‌ها دیر انجام شوند.";
                     action = "خاموش کن";
                     fix = this::askBattery;
                     break;

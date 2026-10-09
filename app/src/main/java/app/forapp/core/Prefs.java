@@ -20,6 +20,10 @@ public final class Prefs {
 
     /** Forward only SMS recognised as deposits (withdrawals, one-time passwords and ads stay on the phone). */
     public boolean depositOnly() { return p.getBoolean("deposit_only", true); }
+
+    /** The first-launch introduction and setup were seen (finished or skipped). */
+    public boolean onboarded() { return p.getBoolean("onboarded", false); }
+    public void onboarded(boolean v) { p.edit().putBoolean("onboarded", v).apply(); }
     public void depositOnly(boolean v) { p.edit().putBoolean("deposit_only", v).apply(); }
 
     public int maxAttempts() { return p.getInt("max_attempts", 10); }

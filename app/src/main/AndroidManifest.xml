@@ -34,6 +34,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".ui.OnboardingActivity" android:exported="false" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" />
         <activity android:name=".ui.DestinationsActivity" android:exported="false" />
         <activity android:name=".ui.DestinationEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
