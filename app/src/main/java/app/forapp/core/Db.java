@@ -26,7 +26,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "forapp.db", null, 1);
+        super(c, "forapp.db", null, 2);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -34,7 +34,8 @@ public final class Db extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE banks(id INTEGER PRIMARY KEY, name TEXT NOT NULL, senders TEXT NOT NULL DEFAULT '')");
         db.execSQL("CREATE TABLE dests(id INTEGER PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '',"
-                + " enabled INTEGER NOT NULL DEFAULT 1, all_banks INTEGER NOT NULL DEFAULT 1, last_code INTEGER, last_ms INTEGER, last_at INTEGER)");
+                + " enabled INTEGER NOT NULL DEFAULT 1, all_banks INTEGER NOT NULL DEFAULT 1, last_code INTEGER, last_ms INTEGER, last_at INTEGER,"
+                + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT)");
         db.execSQL("CREATE TABLE dest_banks(dest_id INTEGER NOT NULL, bank_id INTEGER NOT NULL, PRIMARY KEY(dest_id, bank_id))");
         db.execSQL("CREATE TABLE msgs(id INTEGER PRIMARY KEY, uid TEXT NOT NULL, fp TEXT NOT NULL UNIQUE, sender TEXT NOT NULL,"
                 + " bank_id INTEGER, bank TEXT, body TEXT NOT NULL, amount INTEGER, unit TEXT, deposit INTEGER,"
@@ -54,7 +55,14 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     @Override
-    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) {}
+    public void onUpgrade(SQLiteDatabase db, int oldV, int newV) {
+        if (oldV < 2) {
+            // v2: each destination can shape its own request; NULL keeps the original JSON-by-POST.
+            for (String col : new String[]{"method", "headers", "body_type", "body_tpl"}) db.execSQL("ALTER TABLE dests ADD COLUMN " + col + " TEXT");
+        }
+    }
+
+    private static final String DEST_COLS = "id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at, method, headers, body_type, body_tpl";
 
     // ---------- models ----------
 
@@ -76,6 +84,16 @@ public final class Db extends SQLiteOpenHelper {
         public boolean enabled = true, allBanks = true;
         public Integer lastCode;
         public long lastMs, lastAt;
+        // How the request looks; null means the default (JSON by POST with X-API-Key), see {@link Request}.
+        public String method, headers, bodyType, bodyTpl;
+
+        public String method() { return method == null ? "POST" : method; }
+        public String headers() { return headers == null ? Request.DEFAULT_HEADERS : headers; }
+        public String bodyType() { return bodyType == null ? Request.JSON : bodyType; }
+        public String bodyTpl() { return bodyTpl == null ? Request.defaultBody(bodyType()) : bodyTpl; }
+
+        /** True when nothing about the request was changed from the default. */
+        public boolean defaultRequest() { return method == null && headers == null && bodyType == null && bodyTpl == null; }
     }
 
     public static final class Msg {
@@ -140,14 +158,14 @@ public final class Db extends SQLiteOpenHelper {
 
     public List<Dest> dests() {
         List<Dest> l = new ArrayList<>();
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at FROM dests ORDER BY id", null)) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + DEST_COLS + " FROM dests ORDER BY id", null)) {
             while (c.moveToNext()) l.add(readDest(c));
         }
         return l;
     }
 
     public Dest dest(long id) {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at FROM dests WHERE id=?", args(id))) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT " + DEST_COLS + " FROM dests WHERE id=?", args(id))) {
             return c.moveToFirst() ? readDest(c) : null;
         }
     }
@@ -163,6 +181,10 @@ public final class Db extends SQLiteOpenHelper {
         d.lastCode = c.isNull(6) ? null : c.getInt(6);
         d.lastMs = c.isNull(7) ? 0 : c.getLong(7);
         d.lastAt = c.isNull(8) ? 0 : c.getLong(8);
+        d.method = c.getString(9);
+        d.headers = c.getString(10);
+        d.bodyType = c.getString(11);
+        d.bodyTpl = c.getString(12);
         return d;
     }
 
@@ -184,6 +206,10 @@ public final class Db extends SQLiteOpenHelper {
             v.put("api_key", d.apiKey);
             v.put("enabled", d.enabled ? 1 : 0);
             v.put("all_banks", d.allBanks ? 1 : 0);
+            v.put("method", d.method);
+            v.put("headers", d.headers);
+            v.put("body_type", d.bodyType);
+            v.put("body_tpl", d.bodyTpl);
             if (d.id == 0) d.id = db.insert("dests", null, v);
             else db.update("dests", v, "id=?", args(d.id));
             db.delete("dest_banks", "dest_id=?", args(d.id));
@@ -225,7 +251,7 @@ public final class Db extends SQLiteOpenHelper {
     public List<Dest> destsForBank(long bankId) {
         List<Dest> l = new ArrayList<>();
         try (Cursor c = getReadableDatabase().rawQuery(
-                "SELECT id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at FROM dests WHERE enabled=1"
+                "SELECT " + DEST_COLS + " FROM dests WHERE enabled=1"
                         + " AND (all_banks=1 OR id IN (SELECT dest_id FROM dest_banks WHERE bank_id=?)) ORDER BY id", args(bankId))) {
             while (c.moveToNext()) l.add(readDest(c));
         }

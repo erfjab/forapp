@@ -211,11 +211,8 @@ public final class MainActivity extends BaseActivity {
         chart = new ChartView(this);
         top.addView(chart);
 
-        LinearLayout logh = Ui.rowLayout(this);
-        Ui.pad(logh, 20, 22, 20, 0);
-        logh.addView(Ui.text(this, "همه‌ی واریزها", 14, R.color.fg, Ui.W_BOLD), Ui.weight1());
-        logh.addView(Ui.text(this, "جدیدترین بالا", 11.5f, R.color.mid, Ui.W_REGULAR));
-        top.addView(logh);
+        View gap = new View(this); // breathing room between the chart and the log
+        top.addView(gap, Ui.lp(1, Ui.dp(this, 16)));
 
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);

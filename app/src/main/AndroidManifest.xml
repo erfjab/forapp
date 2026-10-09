@@ -55,6 +55,8 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".ui.Widget$Pinned" android:exported="false" />
+
         <receiver android:name=".ui.Widget$Strip" android:exported="false" android:label="ForApp Strip">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

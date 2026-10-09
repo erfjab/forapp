@@ -18,8 +18,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -27,11 +25,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
@@ -127,7 +122,7 @@ public final class Forwarder {
             db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, "مقصد حذف شده");
             return;
         }
-        Result r = post(dest, payload(c, m, d.attempts + 1, false), prefs.timeoutSec());
+        Result r = post(request(dest, m, d.attempts + 1, false), prefs.timeoutSec());
         if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
         long now = System.currentTimeMillis();
         if (r.ok()) {
@@ -169,7 +164,7 @@ public final class Forwarder {
             r = new Result(0, "مقصد حذف شده", 0);
             db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, r.error);
         } else {
-            r = post(dest, payload(c, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
+            r = post(request(dest, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
             if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
             if (r.ok()) db.finishDelivery(d.id, Db.SENT, d.attempts + 1, System.currentTimeMillis(), r.code, null);
             else db.finishDelivery(d.id, d.status == Db.SENDING ? Db.PENDING : d.status, d.attempts, d.nextAt,
@@ -205,45 +200,30 @@ public final class Forwarder {
         return Math.min(ms, 30 * 60_000L);
     }
 
-    public static JSONObject payload(Context c, Db.Msg m, int attempt, boolean test) {
-        JSONObject o = new JSONObject();
-        try {
-            o.put("id", m.uid);
-            o.put("test", test);
-            o.put("sender", m.sender);
-            o.put("bank", m.bank == null ? JSONObject.NULL : m.bank);
-            o.put("body", m.body);
-            o.put("amount", m.amount == null ? JSONObject.NULL : m.amount);
-            o.put("code", m.amount == null ? JSONObject.NULL : SmsParser.code(m.amount));
-            o.put("unit", m.unit == null ? JSONObject.NULL : m.unit);
-            o.put("is_deposit", m.deposit == null ? JSONObject.NULL : m.deposit);
-            o.put("received_at", iso(m.at));
-            o.put("received_at_ms", m.at);
-            o.put("attempt", attempt);
-            o.put("device", Build.MANUFACTURER + " " + Build.MODEL);
-        } catch (JSONException ignored) {}
-        return o;
+    /** The request a delivery sends, from the destination's settings (method, headers, body template). */
+    public static Request request(Db.Dest d, Db.Msg m, int attempt, boolean test) {
+        return Request.build(d, Request.vars(d, m, attempt, test));
     }
 
-    public static Result post(Db.Dest d, JSONObject body, int timeoutSec) {
+    public static Result post(Request q, int timeoutSec) {
         long t0 = System.currentTimeMillis();
         HttpURLConnection h = null;
         try {
-            h = (HttpURLConnection) new URL(d.url.trim()).openConnection();
+            h = (HttpURLConnection) new URL(q.url).openConnection();
             h.setConnectTimeout(Math.min(timeoutSec, 8) * 1000);
             h.setReadTimeout(timeoutSec * 1000);
-            h.setRequestMethod("POST");
-            h.setDoOutput(true);
+            h.setRequestMethod(q.method);
             h.setUseCaches(false);
             h.setInstanceFollowRedirects(false);
-            h.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             h.setRequestProperty("Accept", "application/json");
             h.setRequestProperty("User-Agent", "ForApp/1.0 (Android " + Build.VERSION.RELEASE + ")");
-            h.setRequestProperty("X-API-Key", d.apiKey);
-            h.setRequestProperty("Idempotency-Key", body.optString("id"));
-            byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
-            h.setFixedLengthStreamingMode(bytes.length);
-            try (OutputStream out = h.getOutputStream()) { out.write(bytes); }
+            for (String[] hd : q.headers) h.setRequestProperty(hd[0], hd[1]); // the destination's own headers win
+            if (q.body != null) {
+                byte[] bytes = q.body.getBytes(StandardCharsets.UTF_8);
+                h.setDoOutput(true);
+                h.setFixedLengthStreamingMode(bytes.length);
+                try (OutputStream out = h.getOutputStream()) { out.write(bytes); }
+            }
             int code = h.getResponseCode();
             String err = null;
             if (code < 200 || code >= 300) err = "HTTP " + code + snippet(h);
@@ -253,8 +233,8 @@ public final class Forwarder {
             return new Result(0, "مهلت پاسخ سرور تمام شد", System.currentTimeMillis() - t0);
         } catch (java.net.UnknownHostException e) {
             return new Result(0, "آدرس سرور پیدا نشد", System.currentTimeMillis() - t0);
-        } catch (java.net.MalformedURLException | ClassCastException e) { // ClassCast: not an http(s) address
-            return new Result(-1, "آدرس وبهوک درست نیست", System.currentTimeMillis() - t0);
+        } catch (java.net.MalformedURLException | ClassCastException | IllegalArgumentException e) { // not an http(s) address, bad header
+            return new Result(-1, "آدرس یا هدرهای مقصد درست نیست", System.currentTimeMillis() - t0);
         } catch (Exception e) {
             return new Result(0, e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()),
                     System.currentTimeMillis() - t0);
@@ -265,16 +245,7 @@ public final class Forwarder {
 
     /** Sends a clearly marked test payload; used by the "ارسال آزمایشی" buttons. */
     public static Result test(Context c, Db.Dest d) {
-        Db.Msg m = new Db.Msg();
-        m.uid = "test-" + java.util.UUID.randomUUID();
-        m.sender = "ForApp";
-        m.bank = "آزمایشی";
-        m.body = "پیامک آزمایشی ForApp\nواریز: 1,000,123 ریال";
-        m.amount = 1_000_123L;
-        m.unit = "rial";
-        m.deposit = true;
-        m.at = System.currentTimeMillis();
-        Result r = post(d, payload(c, m, 1, true), Prefs.of(c).timeoutSec());
+        Result r = post(request(d, Request.sample(true), 1, true), Prefs.of(c).timeoutSec());
         if (d.id > 0 && r.code > 0) Db.get(c).setDestLast(d.id, r.code, r.ms);
         return r;
     }
@@ -298,10 +269,6 @@ public final class Forwarder {
             byte[] buf = new byte[512];
             while (in.read(buf) > 0) { /* let the connection be reused */ }
         } catch (Exception ignored) {}
-    }
-
-    private static String iso(long ms) {
-        return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date(ms));
     }
 
     public static boolean online(Context c) {

@@ -26,6 +26,7 @@ import app.forapp.core.Updater;
 
 public final class SettingsActivity extends BaseActivity {
     private LinearLayout list;
+    private int widgetsBefore = -1;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -40,6 +41,10 @@ public final class SettingsActivity extends BaseActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (widgetsBefore >= 0) {
+            if (Widget.count(this) > widgetsBefore) Widget.confirmAdded(this);
+            widgetsBefore = -1;
+        }
         build();
     }
 
@@ -147,9 +152,12 @@ public final class SettingsActivity extends BaseActivity {
 
     /** Asks the launcher to place the widget; it shows its own "Add to home screen" dialog. */
     private void pinWidget(Class<?> provider) {
+        widgetsBefore = Widget.count(this); // some launchers (MIUI) add it without calling back; onResume checks the count
         android.appwidget.AppWidgetManager m = android.appwidget.AppWidgetManager.getInstance(this);
         if (!m.isRequestPinAppWidgetSupported()
-                || !m.requestPinAppWidget(new android.content.ComponentName(this, provider), null, null)) {
+                || !m.requestPinAppWidget(new android.content.ComponentName(this, provider), null,
+                android.app.PendingIntent.getBroadcast(this, provider == Widget.class ? 1 : 2, new Intent(this, Widget.Pinned.class),
+                        android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_MUTABLE))) {
             Ui.toast(this, "این لانچر افزودن مستقیم را پشتیبانی نمی‌کند؛ از منوی ویجت‌های صفحه‌ی اصلی اضافه کنید");
         }
     }

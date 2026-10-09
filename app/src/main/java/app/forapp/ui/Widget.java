@@ -46,6 +46,28 @@ public class Widget extends AppWidgetProvider {
     /** The 4x1 strip: deposits | sum | failures. */
     public static final class Strip extends Widget {}
 
+    static volatile long confirmedAt; // last "added" message, so the launcher callback and the count check never both show it
+
+    /** The launcher calls this once the widget really is on the home screen. */
+    public static final class Pinned extends android.content.BroadcastReceiver {
+        @Override
+        public void onReceive(Context c, Intent i) {
+            confirmAdded(c);
+        }
+    }
+
+    static void confirmAdded(Context c) {
+        if (System.currentTimeMillis() - confirmedAt < 5000) return;
+        confirmedAt = System.currentTimeMillis();
+        android.widget.Toast.makeText(c, "ویجت به صفحه‌ی اصلی اضافه شد", android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /** How many ForApp widgets are on the home screen. */
+    static int count(Context c) {
+        AppWidgetManager m = AppWidgetManager.getInstance(c);
+        return m.getAppWidgetIds(new ComponentName(c, Widget.class)).length + m.getAppWidgetIds(new ComponentName(c, Strip.class)).length;
+    }
+
     @Override
     public void onUpdate(Context c, AppWidgetManager m, int[] ids) {
         refreshAsync(c);
@@ -140,7 +162,8 @@ public class Widget extends AppWidgetProvider {
         final Bitmap fg, mid, red;
         final Canvas cf, cm, cr;
         final Typeface regular, bold, black;
-        float k = 1f; // shrink factor for narrow widgets
+        float k = 1f, kh = 1f; // shrink factors: k when the widget is narrow, kh when it is short
+        float need; // height (px) the tallest column needed in the last drawing
 
         Art(Context c, int wDp, int hDp, float density) {
             this.c = c;
@@ -158,7 +181,21 @@ public class Widget extends AppWidgetProvider {
             black = Ui.font(c, Ui.W_BLACK);
         }
 
-        float px(float dp) { return dp * d * k; }
+        float px(float dp) { return dp * d * k * kh; }
+
+        /** Draws, and draws again smaller while the content is taller than the widget (MIUI makes 4x1 widgets short). */
+        void fit(Runnable draw) {
+            for (int i = 0; i < 4; i++) {
+                need = 0;
+                fg.eraseColor(0);
+                mid.eraseColor(0);
+                red.eraseColor(0);
+                draw.run();
+                float room = h * 0.9f;
+                if (need <= room) return;
+                kh *= room / need;
+            }
+        }
 
         /** One right-to-left line; Latin names and digits keep their own order inside it. */
         StaticLayout line(String s, Typeface tf, float sp, int maxW) {
@@ -187,6 +224,7 @@ public class Widget extends AppWidgetProvider {
         /** Two stacked lines, right-aligned at {@code right}, centred vertically. */
         void pair(Canvas c1, StaticLayout a, Canvas c2, StaticLayout b, float right, float gap) {
             float total = a.getHeight() + gap + b.getHeight();
+            need = Math.max(need, total);
             float top = (h - total) / 2f;
             put(c1, a, right, top);
             put(c2, b, right, top + a.getHeight() + gap);
@@ -194,7 +232,11 @@ public class Widget extends AppWidgetProvider {
 
         // ---------- compact 2x1 ----------
 
-        void compact(State s) {
+        void compact(State s) { fit(() -> drawCompact(s)); }
+
+        void strip(State s) { fit(() -> drawStrip(s)); }
+
+        private void drawCompact(State s) {
             float start = 16, end = 14;
             if (!s.on) {
                 fitTo(8 + 12 + 120 + start + end);
@@ -224,10 +266,11 @@ public class Widget extends AppWidgetProvider {
             }
             StaticLayout num = line(Fa.d(s.count), black, 38, w);
             StaticLayout sum = line(Fa.group(s.toman), bold, 13, w);
-            fitTo((num.getWidth() + sum.getWidth()) / (d * k) + 12 + start + end);
+            fitTo((num.getWidth() + sum.getWidth()) / (d * k * kh) + 12 + start + end);
             num = line(Fa.d(s.count), black, 38, w);
             float right = w - px(start);
             put(cf, num, right, (h - num.getHeight()) / 2f);
+            need = Math.max(need, num.getHeight() * 0.75f); // digits use about three quarters of their line box
             right -= num.getWidth() + px(12);
             int max = (int) (right - px(end));
             StaticLayout a = line(Fa.group(s.toman), bold, 13, max), b = line("تومان امروز", regular, 10, max);
@@ -238,6 +281,7 @@ public class Widget extends AppWidgetProvider {
             // failures: a third, red line; red appears nowhere else
             StaticLayout f = line(Fa.d(s.failed) + " ناموفق", bold, 10, max);
             float top = (h - a.getHeight() - b.getHeight() - f.getHeight()) / 2f;
+            need = Math.max(need, a.getHeight() + b.getHeight() + f.getHeight());
             put(cf, a, right, top);
             put(cm, b, right, top + a.getHeight());
             put(cr, f, right, top + a.getHeight() + b.getHeight());
@@ -245,7 +289,7 @@ public class Widget extends AppWidgetProvider {
 
         // ---------- strip 4x1 ----------
 
-        void strip(State s) {
+        private void drawStrip(State s) {
             float pad = 18, gap = 14;
             if (!s.on) {
                 fitTo(8 + 12 + 150 + 80 + 2 * pad);
@@ -265,13 +309,13 @@ public class Widget extends AppWidgetProvider {
             }
             boolean empty = s.count == 0;
             StaticLayout num0 = line(Fa.d(s.count), black, 32, w), sum0 = line(empty ? "هنوز واریزی نیامده" : Fa.group(s.toman), bold, 15, w);
-            fitTo((num0.getWidth() + sum0.getWidth()) / (d * k) + 2 * pad + 2 * gap + (empty ? 0 : 60 + 2 * gap) + 2);
+            fitTo((num0.getWidth() + sum0.getWidth()) / (d * k * kh) + 2 * pad + 2 * gap + (empty ? 0 : 60 + 2 * gap) + 2);
 
             // deposits
             float right = w - px(pad);
             StaticLayout num = line(Fa.d(s.count), black, 32, w), cap = line("واریز امروز", regular, 10, w);
             float colW = Math.max(num.getWidth(), cap.getWidth());
-            pair(empty ? cm : cf, num, cm, cap, right, 0);
+            pair(empty ? cm : cf, num, cm, cap, right, -num.getHeight() * 0.18f); // digits have room above and below
             right -= colW + px(gap);
             hairline(right);
             right -= px(1) + px(gap);
@@ -285,10 +329,12 @@ public class Widget extends AppWidgetProvider {
                 if (bad) {
                     StaticLayout f = line(Fa.d(s.failed), black, 20, w);
                     float top = (h - f.getHeight() - fcap.getHeight()) / 2f;
+                    need = Math.max(need, f.getHeight() + fcap.getHeight());
                     put(cr, f, cx + f.getWidth() / 2f, top);
                     put(cr, fcap, cx + fcap.getWidth() / 2f, top + f.getHeight());
                 } else {
                     float ih = px(16), top = (h - ih - px(4) - fcap.getHeight()) / 2f;
+                    need = Math.max(need, ih + px(4) + fcap.getHeight());
                     check(cf, cx, top + ih / 2f, ih);
                     put(cm, fcap, cx + fcap.getWidth() / 2f, top + ih + px(4));
                 }
@@ -322,10 +368,10 @@ public class Widget extends AppWidgetProvider {
             cv.drawPath(path, p);
         }
 
-        /** Shrinks everything when the natural width (dp) does not fit. */
+        /** Shrinks everything when the natural width (dp, before any shrinking) does not fit. */
         void fitTo(float neededDp) {
             float avail = w / d;
-            k = Math.max(0.6f, Math.min(1f, avail / neededDp));
+            k = Math.max(0.5f, Math.min(1f, avail / (neededDp * kh)));
         }
 
         static Paint fill(int color) {

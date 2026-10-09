@@ -233,6 +233,10 @@ final class DetailsSheet {
             p.topMargin = Ui.dp(a, 8);
             c.addView(err, p);
         }
+        TextView req = Ui.text(a, "مشاهده‌ی درخواست", 12, R.color.fg, Ui.W_BOLD);
+        Ui.pad(req, 26, 8, 0, 2);
+        req.setOnClickListener(v -> showRequest(d));
+        c.addView(req);
         if (d.status == Db.PENDING || d.status == Db.FAILED) {
             TextView b = Ui.button(a, busy ? "در حال ارسال…" : "ارسال الان", false, v -> sendNow(d));
             b.setTextSize(13);
@@ -262,6 +266,45 @@ final class DetailsSheet {
         }, "forapp-manual").start();
     }
 
+    /** The full HTTP request for this delivery, built with the destination's current settings. */
+    private void showRequest(Db.Delivery d) {
+        io.execute(() -> {
+            Db db = Db.get(a);
+            Db.Dest dest = db.dest(d.destId);
+            Db.Msg m = db.message(d.msgId);
+            a.runOnUiThread(() -> {
+                if (dest == null || m == null) {
+                    Ui.toast(a, "این مقصد حذف شده");
+                    return;
+                }
+                app.forapp.core.Request q = Forwarder.request(dest, m, Math.max(1, d.attempts), false);
+                LinearLayout content = Ui.col(a);
+                android.app.Dialog sheet = Ui.sheet(a, content);
+                TextView title = Ui.text(a, "درخواست به " + Ui.iso(dest.name), 18, R.color.fg, Ui.W_BLACK);
+                Ui.pad(title, 2, 14, 2, 2);
+                content.addView(title);
+                TextView note = Ui.text(a, "با تنظیمات فعلی این مقصد. کلید API کوتاه نشان داده شده.", 12, R.color.mid, Ui.W_REGULAR);
+                Ui.pad(note, 2, 4, 2, 10);
+                content.addView(note);
+                LinearLayout box = card(R.color.line);
+                TextView t = Ui.text(a, q.describe(dest.apiKey, false), 11.5f, R.color.fg, Ui.W_REGULAR);
+                t.setTypeface(Typeface.MONOSPACE);
+                t.setTextDirection(View.TEXT_DIRECTION_LTR);
+                t.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+                t.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_START);
+                t.setTextIsSelectable(true);
+                box.addView(t);
+                content.addView(box, cardLp(0));
+                TextView copy = Ui.button(a, "کپی درخواست", false, v -> {
+                    a.getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("request", q.describe(dest.apiKey, false)));
+                    Ui.toast(a, "کپی شد");
+                });
+                content.addView(copy, cardLp(14));
+                sheet.show();
+            });
+        });
+    }
+
     // ---------- small pieces ----------
 
     private LinearLayout card(int fillRes) {
@@ -281,14 +324,13 @@ final class DetailsSheet {
         LinearLayout r = Ui.rowLayout(a);
         Ui.pad(r, 0, 5, 0, 5);
         r.addView(Ui.text(a, label, 12.5f, R.color.mid, Ui.W_REGULAR));
-        TextView v = Ui.ellipsize(Ui.text(a, ltr ? value : Fa.d(value), 13.5f, R.color.fg, Ui.W_BOLD));
-        v.setGravity(Gravity.END);
-        Ui.pad(v, 16, 0, 0, 0);
-        if (ltr) {
-            v.setTextDirection(View.TEXT_DIRECTION_LTR);
-            v.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-            v.setTextSize(12.5f);
-        }
+        TextView v = Ui.ellipsize(Ui.text(a, ltr ? value : Fa.d(value), ltr ? 12.5f : 13.5f, R.color.fg, Ui.W_BOLD));
+        // Every value sits at the far (left) edge, Persian or English, so the column lines up.
+        v.setTextDirection(ltr ? View.TEXT_DIRECTION_LTR : View.TEXT_DIRECTION_RTL);
+        v.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY);
+        v.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        if (copy) v.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+        Ui.pad(v, 0, 0, 16, 0);
         r.addView(v, Ui.weight1());
         if (copy) {
             r.setOnClickListener(x -> {
