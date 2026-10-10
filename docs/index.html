@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فوراپ | پیامک واریز، مستقیم به وبهوک شما</title>
+<meta name="description" content="فوراپ پیامک واریز بانک را روی گوشی اندروید می‌خواند و همان لحظه به وبهوک شما می‌فرستد.">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/vazir_black.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="fonts/vazir_bold.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+@font-face { font-family: Vazir; src: url(fonts/vazir_regular.ttf) format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Vazir; src: url(fonts/vazir_bold.ttf) format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: Vazir; src: url(fonts/vazir_black.ttf) format("truetype"); font-weight: 900; font-display: swap; }
+
+/* The app's palette (app/src/main/res/values/colors.xml) */
+:root { --bg: #FFFFFF; --fg: #111111; --mid: #6B6B6B; --faint: #ECECEC; --line: #F2F2F2; --red: #E4002B; --redbg: #FFF0F2; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: Vazir, Tahoma, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.8; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 32px; }
+.label { font-size: 12px; font-weight: 700; color: var(--mid); }
+.ltr { direction: ltr; unicode-bidi: isolate; display: inline-block; }
+.r { color: var(--red); }
+
+/* Square, flat buttons like Ui.button(): solid fg or 1.5px outline */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; font: inherit; font-weight: 700; font-size: 15px; padding: 14px 24px; border: 1.5px solid var(--fg); cursor: pointer; transition: background .15s, color .15s; }
+.btn.solid { background: var(--fg); color: var(--bg); }
+.btn.solid:hover { background: #333; border-color: #333; }
+.btn.line { background: transparent; color: var(--fg); }
+.btn.line:hover { background: var(--fg); color: var(--bg); }
+.btn .n { font-weight: 900; }
+.btn small { font-size: 12px; font-weight: 400; opacity: .7; }
+
+/* hero */
+.hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; align-items: center; min-height: 100vh; padding-top: 32px; padding-bottom: 32px; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 20px; margin-bottom: 56px; }
+.brand i { width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
+.brand span { font-size: 13px; font-weight: 400; color: var(--mid); margin-inline-start: 6px; }
+h1 { font-size: clamp(40px, 5.6vw, 76px); font-weight: 900; line-height: 1.22; letter-spacing: -1px; }
+.lead { font-size: 18px; color: var(--mid); margin: 24px 0 36px; max-width: 500px; }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; }
+.meta { font-size: 12px; color: var(--mid); margin-top: 14px; }
+#scene { position: relative; height: min(760px, 92vh); }
+#scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hook { position: absolute; left: 0; bottom: 18%; width: 230px; background: var(--bg); border: 1px solid var(--faint); padding: 12px 14px; font-size: 12px; box-shadow: 0 24px 48px -28px rgba(0,0,0,.35); opacity: 0; transform: translateY(10px); transition: opacity .35s, transform .35s; pointer-events: none; }
+.hook.on { opacity: 1; transform: none; }
+.hook .top { display: flex; justify-content: space-between; align-items: center; }
+.hook .m { font: 700 12px ui-monospace, Consolas, monospace; direction: ltr; }
+.hook .ok { display: flex; gap: 4px; align-items: center; font: 700 12px ui-monospace, Consolas, monospace; }
+.hook .ok svg { width: 14px; height: 14px; }
+.hook .u { color: var(--mid); font: 11px ui-monospace, Consolas, monospace; direction: ltr; text-align: left; margin-top: 4px; }
+.hook .c { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; color: var(--mid); }
+.hook .c b { font-size: 15px; font-weight: 900; }
+
+/* widget-like numbers strip */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--faint); border-bottom: 1px solid var(--faint); }
+.stat { padding: 36px 0; display: flex; align-items: flex-end; gap: 16px; }
+.stat + .stat { border-inline-start: 1px solid var(--faint); padding-inline-start: 32px; }
+.stat .big { font-size: 88px; font-weight: 900; line-height: .9; }
+.stat .t { font-size: 14px; font-weight: 700; }
+.stat .s { font-size: 12px; color: var(--mid); }
+
+section { padding: 112px 0 0; }
+h2 { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 1.3; margin: 6px 0 12px; }
+.sub { color: var(--mid); font-size: 16px; max-width: 560px; }
+
+/* features: hairline rows like the settings screen */
+.rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 64px; margin-top: 48px; border-top: 1px solid var(--fg); }
+.row { display: grid; grid-template-columns: 64px 1fr; padding: 26px 0; border-bottom: 1px solid var(--faint); }
+.row .no { font-size: 13px; font-weight: 900; color: var(--mid); padding-top: 4px; }
+.row h3 { font-size: 18px; font-weight: 900; }
+.row p { font-size: 14.5px; color: var(--mid); margin-top: 2px; }
+.row code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; direction: ltr; unicode-bidi: isolate; background: var(--line); padding: 1px 6px; }
+
+/* setup */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 48px; border-top: 1px solid var(--fg); }
+.step { padding: 28px 0 28px 28px; }
+.step + .step { border-inline-start: 1px solid var(--faint); padding-inline-start: 28px; }
+.step .big { font-size: 64px; font-weight: 900; line-height: 1; }
+.step h3 { font-size: 17px; font-weight: 900; margin-top: 14px; }
+.step p { color: var(--mid); font-size: 14.5px; }
+
+/* request */
+.req { display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: start; }
+pre { direction: ltr; text-align: left; background: var(--fg); color: #e9e9e9; padding: 28px 30px; font: 13.5px/1.95 ui-monospace, Consolas, monospace; overflow-x: auto; }
+pre .k { color: #fff; font-weight: 700; } pre .s { color: #bdbdbd; } pre .c { color: #6f6f6f; } pre .r { color: #ff4d6d; }
+.codes { margin-top: 28px; border-top: 1px solid var(--fg); }
+.codes div { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--faint); font-size: 14px; }
+.codes .mono { background: none; padding: 0; font-weight: 700; }
+
+/* community */
+.join { margin-top: 112px; background: var(--fg); color: var(--bg); }
+.join .wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; padding-top: 80px; padding-bottom: 80px; align-items: center; }
+.join h2 { color: var(--bg); }
+.join .sub { color: #a8a8a8; }
+.join .acts { display: flex; flex-direction: column; }
+.join a.act { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid #2b2b2b; font-size: 18px; font-weight: 900; transition: padding .2s; }
+.join a.act:first-child { border-top: 1px solid #2b2b2b; }
+.join a.act:hover { padding-inline-start: 10px; }
+.join a.act .end { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; color: #a8a8a8; }
+.join a.act .end svg { width: 16px; height: 16px; transform: scaleX(-1); }
+.join a.act .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); display: inline-block; margin-inline-end: 10px; }
+
+footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 28px; padding-bottom: 40px; font-size: 13px; color: var(--mid); }
+footer a { color: var(--fg); font-weight: 700; }
+
+.reveal { opacity: 0; transform: translateY(20px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.in, .no-io .reveal { opacity: 1; transform: none; }
+
+@media (max-width: 960px) {
+  .hero .wrap { gap: 0; }
+  #scene { height: min(620px, 86vh); }
+  .rows, .req, .join .wrap { grid-template-columns: 1fr; }
+  .rows { column-gap: 0; }
+  .hook { left: 24px; bottom: 6%; }
+  section { padding-top: 80px; }
+}
+@media (max-width: 720px) {
+  .hero .wrap { grid-template-columns: 1fr; min-height: 0; padding-top: 20px; }
+  .hero .copy { display: contents; }
+  .brand { margin-bottom: 0; order: -2; }
+  #scene { height: 520px; order: -1; margin: 0 -32px; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 20px; }
+  #scene { margin: 0 -20px; height: 470px; }
+  .stats, .steps { grid-template-columns: 1fr; }
+  .stat + .stat, .step + .step { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid var(--faint); }
+  .stat { padding: 24px 0; } .stat .big { font-size: 64px; }
+  .step { padding: 24px 0; }
+  .cta .btn { flex: 1 1 100%; }
+  .lead { font-size: 16.5px; }
+  pre { font-size: 12px; padding: 20px; margin: 0 -20px; }
+  .hook { width: 196px; left: 16px; }
+  .join .wrap { padding-top: 56px; padding-bottom: 56px; }
+}
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="copy">
+      <div class="brand"><i></i>فوراپ<span>متن‌باز · اندروید ۸ به بالا</span></div>
+      <div>
+        <h1>پیامک واریز،<br><span class="r">همان لحظه</span> روی<br>وبهوک شما.</h1>
+        <p class="lead">فوراپ پیامک واریز بانک را روی گوشی می‌خواند و بی‌درنگ به وبهوک شما می‌فرستد. دیگر لازم نیست واریزها را دستی ثبت کنید.</p>
+        <div class="cta">
+          <a class="btn solid" href="https://github.com/erfjab/forapp/releases/latest">
+            <svg class="i" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            دانلود آخرین نسخه <small class="ver"></small>
+          </a>
+          <a class="btn line" href="https://github.com/erfjab/forapp" target="_blank" rel="noopener">
+            <svg class="i" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>
+            ستاره در گیت‌هاب <span class="n stars"></span>
+          </a>
+        </div>
+        <p class="meta">فایل APK از صفحه‌ی Releases گیت‌هاب · رایگان و بدون تبلیغ</p>
+      </div>
+    </div>
+    <div id="scene" aria-hidden="true">
+      <div class="hook" id="hook">
+        <div class="top"><span class="m">POST /webhook</span><span class="ok"><svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>200</span></div>
+        <div class="u">Idempotency-Key: <span id="hook-key">a91f…</span></div>
+        <div class="c"><span>کد تطبیق</span><b class="r ltr" id="hook-code">۴۳۷</b></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats reveal">
+    <div class="stat"><div class="big">۳</div><div><div class="t">رقم آخر مبلغ</div><div class="s">کد تطبیق هر واریز</div></div></div>
+    <div class="stat"><div class="big">۰</div><div><div class="t">سرور واسطه</div><div class="s">مستقیم از گوشی به وبهوک شما</div></div></div>
+    <div class="stat"><div class="big">۱</div><div><div class="t">بار ثبت</div><div class="s">هر واریز، با کلید یکتا</div></div></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="label">ویژگی‌ها</p>
+      <h2>ساده، مطمئن، فقط روی گوشی شما.</h2>
+      <p class="sub">هر چیزی که برای تأیید خودکار پرداخت‌ها لازم دارید، بدون سرور واسطه و بدون ثبت تکراری.</p>
+    </div>
+    <div class="rows">
+      <div class="row reveal"><span class="no">۰۱</span><div><h3>کد تطبیق سه‌رقمی</h3><p>سه رقم آخر مبلغ (<span class="ltr">۲,۵۰۰,<span class="r">۴۳۷</span></span>) جدا فرستاده می‌شود تا واریز هر مشتری خودکار پیدا شود.</p></div></div>
+      <div class="row reveal"><span class="no">۰۲</span><div><h3>مطمئن در اینترنت فیلترشده</h3><p>بی‌اتصالی تلاش حساب نمی‌شود؛ منتظر VPN می‌ماند و با وصل شدن، خودش می‌فرستد.</p></div></div>
+      <div class="row reveal"><span class="no">۰۳</span><div><h3>بدون ثبت تکراری</h3><p>هر واریز <code>Idempotency-Key</code> یکتای خودش را دارد؛ هیچ پرداختی دو بار ثبت نمی‌شود.</p></div></div>
+      <div class="row reveal"><span class="no">۰۴</span><div><h3>بدون سرور واسطه</h3><p>همه‌ی داده‌ها فقط روی گوشی شماست و مستقیم به وبهوک خودتان می‌رود.</p></div></div>
+      <div class="row reveal"><span class="no">۰۵</span><div><h3>درخواست دلخواه برای هر مقصد</h3><p>متد، هدرها و بدنه (JSON، فرم یا متن) با متغیرهایی مثل <code>{{amount}}</code> و پیش‌نمایش زنده.</p></div></div>
+      <div class="row reveal"><span class="no">۰۶</span><div><h3>فقط بانک‌هایی که می‌خواهید</h3><p>بقیه‌ی پیامک‌ها خوانده نمی‌شوند. جزئیات و «ارسال الان» برای هر واریز، و دو ویجت صفحه‌ی اصلی.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="label">راه‌اندازی</p>
+      <h2>در سه قدم آماده است.</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="big">۱</div><h3>نصب و اجازه‌ها</h3><p>APK را نصب کنید و قدم‌ها را بروید: اجازه‌ی پیامک، باتری، بانک‌ها و مقصد.</p></div>
+      <div class="step reveal"><div class="big">۲</div><h3>آدرس وبهوک</h3><p>آدرس و کلید مقصد را بدهید؛ اگر لازم است درخواست را برای سرورتان شخصی کنید.</p></div>
+      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>با «ارسال آزمایشی» مطمئن شوید وبهوک شما جواب می‌دهد. تمام.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="request">
+  <div class="wrap req">
+    <div class="reveal">
+      <p class="label">برای برنامه‌نویس‌ها</p>
+      <h2>یک درخواست تمیز، هر بار.</h2>
+      <p class="sub">همه‌چیز برای هر مقصد قابل تغییر است. پاسخ وبهوک شما تعیین می‌کند که دوباره تلاش شود یا نه.</p>
+      <div class="codes">
+        <div><span>رسید</span><span class="mono">2xx</span></div>
+        <div><span>دوباره تلاش</span><span class="mono">408 · 425 · 429 · 5xx</span></div>
+        <div><span>ناموفق</span><span class="mono r">4xx</span></div>
+      </div>
+    </div>
+    <pre class="reveal"><span class="k">POST</span> https://your.site/webhook
+<span class="k">X-API-Key:</span> <span class="s">••••••••</span>
+<span class="k">Idempotency-Key:</span> <span class="s">7f3c…a91</span>
+
+{
+  <span class="s">"bank"</span>: <span class="s">"mellat"</span>,
+  <span class="s">"amount"</span>: 2500<span class="r">437</span>,
+  <span class="s">"code"</span>: <span class="r">"437"</span>,
+  <span class="s">"unit"</span>: <span class="s">"rial"</span>,
+  <span class="s">"is_deposit"</span>: true,
+  <span class="s">"received_at"</span>: <span class="s">"2026-10-10T12:40:07+03:30"</span>,
+  <span class="s">"attempt"</span>: 1   <span class="c">// …</span>
+}</pre>
+  </div>
+</section>
+
+<section class="join" id="join">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="label" style="color:#8a8a8a">همراهی</p>
+      <h2>فوراپ را همراهی کنید.</h2>
+      <p class="sub">فوراپ رایگان و متن‌باز است. با یک ستاره در گیت‌هاب بیشتر دیده می‌شود، و در کانال خبر نسخه‌های تازه را زودتر از همه می‌گیرید.</p>
+    </div>
+    <div class="acts reveal">
+      <a class="act" href="https://github.com/erfjab/forapp/releases/latest"><span><span class="dot"></span>دانلود آخرین نسخه</span><span class="end"><span class="ver"></span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
+      <a class="act" href="https://github.com/erfjab/forapp" target="_blank" rel="noopener"><span>ستاره در گیت‌هاب</span><span class="end"><span class="stars-label"></span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
+      <a class="act" href="https://t.me/ErfJabs" target="_blank" rel="noopener"><span>دنبال کردن کانال تلگرام</span><span class="end"><span class="ltr">@ErfJabs</span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>فوراپ · متن‌باز روی <a href="https://github.com/erfjab/forapp">گیت‌هاب</a></span>
+    <span>فونت وزیرمتن تحت مجوز OFL</span>
+  </div>
+</footer>
+
+<script>
+var fa = function (n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); };
+fetch('https://api.github.com/repos/erfjab/forapp').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+  if (!j || j.stargazers_count == null) return;
+  document.querySelectorAll('.stars').forEach(function (el) { el.textContent = fa(j.stargazers_count); });
+  document.querySelectorAll('.stars-label').forEach(function (el) { el.textContent = fa(j.stargazers_count) + ' ستاره'; });
+}).catch(function () {});
+fetch('https://api.github.com/repos/erfjab/forapp/releases/latest').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+  if (!j || !j.tag_name) return;
+  document.querySelectorAll('.ver').forEach(function (el) { el.textContent = 'نسخه‌ی ' + fa(j.tag_name.replace(/^v/, '')); });
+}).catch(function () {});
+
+if ('IntersectionObserver' in window) {
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: .12 });
+  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+} else document.documentElement.classList.add('no-io');
+</script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="scene.js"></script>
+</body>
+</html>
