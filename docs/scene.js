@@ -191,13 +191,17 @@ async function start() {
 
   // body: rounded slab with a titanium frame and glass back
   const W = 2.16, H = 4.5, D = 0.2, B = 0.055, R = 0.36;
-  const shape = (w, h, r) => {
-    const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
-    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.absarc(x + w - r, y + r, r, -Math.PI / 2, 0);
-    s.lineTo(x + w, y + h - r); s.absarc(x + w - r, y + h - r, r, 0, Math.PI / 2);
-    s.lineTo(x + r, y + h); s.absarc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
-    s.lineTo(x, y + r); s.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5);
-    return s;
+  // Rounded rectangle as plain points. Built from arcs, the outline ended a hair away from where it began, and that
+  // sliver bent the frame's bevel into a notch at the bottom-left corner.
+  const shape = (w, h, r, seg = 16) => {
+    const pts = [], x = w / 2 - r, y = h / 2 - r;
+    [[x, -y, -Math.PI / 2], [x, y, 0], [-x, y, Math.PI / 2], [-x, -y, Math.PI]].forEach(([cx, cy, a0]) => {
+      for (let i = 0; i <= seg; i++) {
+        const t = a0 + (i / seg) * (Math.PI / 2);
+        pts.push(new THREE.Vector2(cx + r * Math.cos(t), cy + r * Math.sin(t)));
+      }
+    });
+    return new THREE.Shape(pts);
   };
   const phone = new THREE.Group();
   const bodyGeo = new THREE.ExtrudeGeometry(shape(W - 2 * B, H - 2 * B, R - B), { depth: D, bevelEnabled: true, bevelThickness: B, bevelSize: B, bevelSegments: 10, curveSegments: 32 });
