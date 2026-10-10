@@ -17,6 +17,13 @@ public class TelegramTest {
         assertEquals("<pre>a\nb</pre>", Telegram.toHtml("```\na\nb\n```"));
     }
 
+    @Test public void quoteLinesBecomeOneBlockquote() {
+        assertEquals("a\n<blockquote>b\nc</blockquote>\nd", Telegram.toHtml("a\n> b\n>c\nd"));
+        Map<String, Object> v = new HashMap<>();
+        v.put("body", "بانک ملت\nواریز:1,000");
+        assertEquals("<blockquote>بانک ملت\nواریز:1,000</blockquote>", Telegram.text("> {{body}}", v, true));
+    }
+
     @Test public void marksInsideCodeStayLiteral() {
         assertEquals("<code>**not bold**</code>", Telegram.toHtml("`**not bold**`"));
         assertEquals("<pre>__x__</pre>", Telegram.toHtml("```__x__```"));

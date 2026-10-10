@@ -307,7 +307,7 @@ public final class DestinationEditActivity extends BaseActivity {
         // Mark buttons wrap the selected text, like the formatting menu in Telegram.
         LinearLayout marks = Ui.rowLayout(this);
         Ui.pad(marks, 20, 8, 20, 0);
-        String[][] buttons = {{"B", "**"}, {"I", "__"}, {"S", "~~"}, {"M", "`"}, {"</>", "```"}, {"▒", "||"}};
+        String[][] buttons = {{"B", "**"}, {"I", "__"}, {"S", "~~"}, {"M", "`"}, {"</>", "```"}, {"❝", "> "}, {"▒", "||"}};
         for (String[] m : buttons) {
             TextView t = Ui.text(this, m[0], 13, R.color.fg, Ui.W_BLACK);
             if ("I".equals(m[0])) t.setTypeface(Typeface.SERIF, Typeface.BOLD_ITALIC);
@@ -377,6 +377,12 @@ public final class DestinationEditActivity extends BaseActivity {
         int s = tplEd.getSelectionStart(), e = tplEd.getSelectionEnd();
         if (s < 0) s = e = tplEd.length();
         if (s > e) { int t = s; s = e; e = t; }
+        if (mark.equals("> ")) { // a quote marks the start of the line, not both ends
+            int line = tplEd.getText().toString().lastIndexOf('\n', s - 1) + 1;
+            tplEd.getText().insert(line, mark);
+            tplEd.requestFocus();
+            return;
+        }
         tplEd.getText().insert(e, mark);
         tplEd.getText().insert(s, mark);
         tplEd.requestFocus();

@@ -32,12 +32,12 @@ public final class Telegram {
             + "کد تطبیق: `{{code}}`\n"
             + "{{bank}} · {{date}} ساعت {{time}}\n"
             + "\n"
-            + "```\n{{body}}\n```";
+            + "> {{body}}";
 
     /** The formatting the editor explains; the same marks as typing in Telegram itself. */
     public static final String[][] MARKS = {
             {"**متن**", "پررنگ"}, {"__متن__", "کج"}, {"~~متن~~", "خط‌خورده"}, {"||متن||", "پنهان"},
-            {"`متن`", "تک‌فاصله"}, {"```متن```", "بلوک کد"},
+            {"`متن`", "تک‌فاصله"}, {"```متن```", "بلوک کد"}, {"> متن", "نقل‌قول، اول خط"},
     };
 
     static Request build(Db.Dest d, Map<String, Object> v, boolean test) {
@@ -90,8 +90,28 @@ public final class Telegram {
         s = keep(PRE, s, "pre", kept);
         s = keep(CODE, s, "code", kept);
         for (String[] m : INLINE) s = s.replaceAll(m[0], "<" + m[1] + ">$1</" + m[1] + ">");
+        s = quotes(s);
         for (int i = 0; i < kept.size(); i++) s = s.replace("\u0000" + i + "\u0000", kept.get(i));
         return s;
+    }
+
+    /** Lines starting with "> " become one blockquote; a variable on that line keeps all its lines inside it. */
+    private static String quotes(String s) {
+        StringBuilder out = new StringBuilder();
+        boolean in = false;
+        String[] lines = s.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String l = lines[i];
+            boolean q = l.startsWith("&gt;");
+            if (q) l = l.substring(l.startsWith("&gt; ") ? 5 : 4);
+            if (!q && in) out.append("</blockquote>");
+            if (i > 0) out.append('\n');
+            if (q && !in) out.append("<blockquote>");
+            out.append(l);
+            in = q;
+        }
+        if (in) out.append("</blockquote>");
+        return out.toString();
     }
 
     /** Replaces each match with a numbered stand-in so later marks do not touch it. */
