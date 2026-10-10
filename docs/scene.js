@@ -175,7 +175,7 @@ const renderer = (() => { try { return new THREE.WebGLRenderer({ antialias: true
 if (renderer) start();
 
 async function start() {
-  try { await Promise.race([Promise.all(['400', '700', '900'].map((w) => document.fonts.load(`${w} 20px Vazir`, 'فوراپ'))), new Promise((r) => setTimeout(r, 2500))]); } catch {}
+  try { await Promise.race([Promise.all(['400', '700', '900'].map((w) => document.fonts.load(`${w} 20px Vazir`, 'فوراپ'))), new Promise((r) => setTimeout(r, 1200))]); } catch {}
 
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;

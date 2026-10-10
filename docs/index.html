@@ -237,8 +237,6 @@ pre .k { color: #fff; font-weight: 700; } pre .s { color: #bdbdbd; } pre .c { co
 footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-top: 28px; padding-bottom: 40px; font-size: 13px; color: var(--mid); }
 footer a { color: var(--fg); font-weight: 700; }
 
-.reveal { opacity: 0; transform: translateY(20px); transition: opacity .7s ease, transform .7s ease; }
-.reveal.in, .no-io .reveal { opacity: 1; transform: none; }
 
 @media (max-width: 960px) {
   .hero .wrap { gap: 0; }
@@ -284,7 +282,6 @@ footer a { color: var(--fg); font-weight: 700; }
   .tgm b { font-size: 12px; } .tgm div { font-size: 11.5px; }
   .join .wrap { padding-top: 56px; padding-bottom: 56px; }
 }
-@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
 /* how it works: one line, four stops */
 .track { list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 56px; position: relative; }
 .track::before { content: ""; position: absolute; top: 21px; right: 12.5%; left: 12.5%; height: 2px; background: linear-gradient(to left, var(--fg) 75%, var(--red)); }
@@ -367,47 +364,15 @@ footer a { color: var(--fg); font-weight: 700; }
   </div>
 </header>
 
-<section id="flow">
-  <div class="wrap">
-    <div class="head reveal">
-      <p class="label">چطور کار می‌کند</p>
-      <h2>از پیامک بانک تا تأیید سفارش، خودکار.</h2>
-      <p class="sub">به هر سفارش مبلغی با سه رقم آخر یکتا بدهید. همین سه رقم «کد تطبیق» است.</p>
-    </div>
-    <ol class="track">
-      <li class="reveal">
-        <span class="dot">۱</span>
-        <h3>مشتری واریز می‌کند</h3>
-        <div class="v-sms"><small>بانک ملت · اکنون</small>واریز: 2,500,<span class="r">437</span></div>
-      </li>
-      <li class="reveal">
-        <span class="dot">۲</span>
-        <h3>فوراپ پیامک را می‌خواند</h3>
-        <div class="v-code"><b>437</b><span>کد تطبیق<br><em>از مبلغ ۲٬۵۰۰٬۴۳۷</em></span></div>
-      </li>
-      <li class="reveal">
-        <span class="dot">۳</span>
-        <h3>به مقصدهای شما می‌فرستد</h3>
-        <div class="v-dest"><span><i></i>وبهوک</span><span><i class="tg"></i>تلگرام</span></div>
-      </li>
-      <li class="reveal">
-        <span class="dot last">✓</span>
-        <h3>سفارش تأیید می‌شود</h3>
-        <div class="v-ok">سفارش ۴۳۷<br><b>پرداخت شد</b></div>
-      </li>
-    </ol>
-  </div>
-</section>
-
 <section id="dests">
   <div class="wrap">
-    <div class="head reveal">
+    <div class="head">
       <p class="label">مقصدها</p>
       <h2>وبهوک، تلگرام، یا هر دو.</h2>
       <p class="sub">هر مقصد جدا تنظیم می‌شود. هر کدام را خواستید روشن کنید.</p>
     </div>
     <div class="dgrid">
-      <article class="dest reveal" data-dest>
+      <article class="dest" data-dest>
         <header><span class="badge"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span>
           <span class="who"><b>وبهوک</b><small>سرور، سایت یا ربات شما</small></span>
           <button class="sw on" type="button" aria-label="روشن یا خاموش"></button></header>
@@ -418,7 +383,7 @@ footer a { color: var(--fg); font-weight: 700; }
   <span class="s">"bank"</span>: <span class="s">"mellat"</span>, <span class="s">"is_deposit"</span>: true }</pre>
         <ul class="chips"><li>متد، هدر و بدنه‌ی دلخواه</li><li>بدون ثبت تکراری</li><li>تلاش دوباره</li></ul>
       </article>
-      <article class="dest reveal" data-dest>
+      <article class="dest" data-dest>
         <header><span class="badge tg"><svg viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z"/></svg></span>
           <span class="who"><b>تلگرام</b><small>گروه یا کانال ادمین‌ها</small></span>
           <button class="sw on" type="button" aria-label="روشن یا خاموش"></button></header>
@@ -434,12 +399,12 @@ footer a { color: var(--fg); font-weight: 700; }
 
 <section id="widgets">
   <div class="wrap wgrid">
-    <div class="head reveal">
+    <div class="head">
       <p class="label">ویجت</p>
       <h2>واریزهای امروز، روی صفحه‌ی اصلی.</h2>
       <p class="sub">بدون باز کردن برنامه ببینید چند واریز آمده، چقدر و چندتا نرسیده.</p>
     </div>
-    <div class="home reveal" aria-hidden="true">
+    <div class="home" aria-hidden="true">
       <div class="w-strip">
         <div class="ws"><b>۲۴</b><small>واریز امروز</small></div><i></i>
         <div class="ws grow"><b class="mid">۱۸٬۷۴۰٬۵۰۰</b><small>تومان</small></div><i></i>
@@ -457,12 +422,12 @@ footer a { color: var(--fg); font-weight: 700; }
 <section id="features">
   <div class="wrap">
     <div class="tiles">
-      <div class="tile reveal"><b>اینترنت فیلترشده</b><span>تا VPN وصل شود صبر می‌کند</span></div>
-      <div class="tile reveal"><b>بدون سرور واسطه</b><span>همه‌چیز روی گوشی شما</span></div>
-      <div class="tile reveal"><b>ضد واریز جعلی</b><span>فقط شماره‌ی واقعی بانک</span></div>
-      <div class="tile reveal"><b>بیش از ۳۰ بانک</b><span>فقط همان‌هایی که می‌خواهید</span></div>
-      <div class="tile reveal"><b>گزارش کامل</b><span>هر واریز و «ارسال الان»</span></div>
-      <div class="tile reveal"><b>پشتیبان تنظیمات</b><span>یک فایل، برای گوشی تازه</span></div>
+      <div class="tile"><b>اینترنت فیلترشده</b><span>تا VPN وصل شود صبر می‌کند</span></div>
+      <div class="tile"><b>بدون سرور واسطه</b><span>همه‌چیز روی گوشی شما</span></div>
+      <div class="tile"><b>ضد واریز جعلی</b><span>فقط شماره‌ی واقعی بانک</span></div>
+      <div class="tile"><b>بیش از ۳۰ بانک</b><span>فقط همان‌هایی که می‌خواهید</span></div>
+      <div class="tile"><b>گزارش کامل</b><span>هر واریز و «ارسال الان»</span></div>
+      <div class="tile"><b>پشتیبان تنظیمات</b><span>یک فایل، برای گوشی تازه</span></div>
     </div>
   </div>
 </section>
@@ -470,17 +435,17 @@ footer a { color: var(--fg); font-weight: 700; }
 <section id="how">
   <div class="wrap">
     <div class="steps">
-      <div class="step reveal"><div class="big">۱</div><h3>نصب روی گوشی صاحب کارت</h3><p>اجازه‌ی پیامک و بانک‌ها.</p></div>
-      <div class="step reveal"><div class="big">۲</div><h3>افزودن مقصد</h3><p>وبهوک، تلگرام، یا هر دو.</p></div>
-      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>ببینید می‌رسد. تمام.</p></div>
+      <div class="step"><div class="big">۱</div><h3>نصب روی گوشی صاحب کارت</h3><p>اجازه‌ی پیامک و بانک‌ها.</p></div>
+      <div class="step"><div class="big">۲</div><h3>افزودن مقصد</h3><p>وبهوک، تلگرام، یا هر دو.</p></div>
+      <div class="step"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>ببینید می‌رسد. تمام.</p></div>
     </div>
   </div>
 </section>
 
 <section id="faq">
   <div class="wrap faq">
-    <div class="reveal"><p class="label">سؤال‌های رایج</p><h2>قبل از نصب.</h2></div>
-    <div class="qs reveal">
+    <div><p class="label">سؤال‌های رایج</p><h2>قبل از نصب.</h2></div>
+    <div class="qs">
       <details open><summary>روی کدام گوشی نصب کنم؟</summary><p>گوشی‌ای که پیامک بانکِ کارت را می‌گیرد. باید روشن و به اینترنت وصل باشد.</p></details>
       <details><summary>پیامک‌ها به سرور شما هم می‌رود؟</summary><p>نه. فوراپ سرور ندارد؛ فقط به مقصدهایی که خودتان تعیین کرده‌اید می‌فرستد.</p></details>
       <details><summary>سرور یا ربات ندارم.</summary><p>فقط مقصد تلگرام بگذارید؛ هر واریز در گروه ادمین‌ها می‌آید.</p></details>
@@ -491,12 +456,12 @@ footer a { color: var(--fg); font-weight: 700; }
 
 <section class="join" id="join">
   <div class="wrap">
-    <div class="reveal">
+    <div>
       <p class="label" style="color:#8a8a8a">همراهی</p>
       <h2>فوراپ را همراهی کنید.</h2>
       <p class="sub">فوراپ رایگان و متن‌باز است. با یک ستاره در گیت‌هاب بیشتر دیده می‌شود، و در کانال خبر نسخه‌های تازه را زودتر از همه می‌گیرید.</p>
     </div>
-    <div class="acts reveal">
+    <div class="acts">
       <a class="act" href="https://github.com/erfjab/forapp/releases/latest"><span><span class="dot"></span>دانلود آخرین نسخه</span><span class="end"><span class="ver"></span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
       <a class="act" href="https://github.com/erfjab/forapp" target="_blank" rel="noopener"><span>ستاره در گیت‌هاب</span><span class="end"><span class="stars-label"></span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
       <a class="act" href="https://t.me/ErfJabs" target="_blank" rel="noopener"><span>دنبال کردن کانال تلگرام</span><span class="end"><span class="ltr">@ErfJabs</span><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></a>
@@ -517,12 +482,6 @@ fetch('https://api.github.com/repos/erfjab/forapp/releases/latest').then(functio
   document.querySelectorAll('.ver').forEach(function (el) { el.textContent = 'نسخه‌ی ' + fa(j.tag_name.replace(/^v/, '')); });
 }).catch(function () {});
 
-if ('IntersectionObserver' in window) {
-  var io = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, { threshold: .12 });
-  document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
-} else document.documentElement.classList.add('no-io');
 document.querySelectorAll('[data-dest] .sw').forEach(function (b) {
   b.addEventListener('click', function () { b.classList.toggle('on'); b.closest('[data-dest]').classList.toggle('off', !b.classList.contains('on')); });
 });
