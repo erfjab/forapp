@@ -28,7 +28,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "forapp.db", null, 3);
+        super(c, "forapp.db", null, 4);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -37,7 +37,7 @@ public final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE banks(id INTEGER PRIMARY KEY, name TEXT NOT NULL, senders TEXT NOT NULL DEFAULT '')");
         db.execSQL("CREATE TABLE dests(id INTEGER PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '',"
                 + " enabled INTEGER NOT NULL DEFAULT 1, all_banks INTEGER NOT NULL DEFAULT 1, last_code INTEGER, last_ms INTEGER, last_at INTEGER,"
-                + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT)");
+                + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT, kind TEXT, chat_id TEXT, parse_mode TEXT)");
         db.execSQL("CREATE TABLE dest_banks(dest_id INTEGER NOT NULL, bank_id INTEGER NOT NULL, PRIMARY KEY(dest_id, bank_id))");
         db.execSQL("CREATE TABLE msgs(id INTEGER PRIMARY KEY, uid TEXT NOT NULL, fp TEXT NOT NULL UNIQUE, sender TEXT NOT NULL,"
                 + " bank_id INTEGER, bank TEXT, body TEXT NOT NULL, amount INTEGER, unit TEXT, deposit INTEGER,"
@@ -57,6 +57,10 @@ public final class Db extends SQLiteOpenHelper {
             for (String col : new String[]{"method", "headers", "body_type", "body_tpl"}) db.execSQL("ALTER TABLE dests ADD COLUMN " + col + " TEXT");
         }
         if (oldV < 3) addMissingBanks(db, FIRST_V3_BANK); // v3: the rest of Iran's banks; ones the user deleted stay deleted
+        if (oldV < 4) {
+            // v4: a destination can be a Telegram chat; NULL kind is a webhook.
+            for (String col : new String[]{"kind", "chat_id", "parse_mode"}) db.execSQL("ALTER TABLE dests ADD COLUMN " + col + " TEXT");
+        }
     }
 
     /** Iranian banks offered out of the box; the user adds each one's SMS sender. Banks merged into Sepah are left out. */
@@ -81,7 +85,8 @@ public final class Db extends SQLiteOpenHelper {
         }
     }
 
-    private static final String DEST_COLS = "id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at, method, headers, body_type, body_tpl";
+    private static final String DEST_COLS = "id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at, method, headers, body_type, body_tpl,"
+            + " kind, chat_id, parse_mode";
 
     // ---------- models ----------
 
@@ -113,6 +118,16 @@ public final class Db extends SQLiteOpenHelper {
 
         /** True when nothing about the request was changed from the default. */
         public boolean defaultRequest() { return method == null && headers == null && bodyType == null && bodyTpl == null; }
+
+        // A Telegram chat instead of a webhook: url is the Bot API server, apiKey the bot token and bodyTpl the message.
+        public String kind, chatId, parseMode;
+
+        public boolean telegram() { return Telegram.KIND.equals(kind); }
+        public String parseMode() { return parseMode == null ? Telegram.MARKDOWN : parseMode; }
+        public String template() { return bodyTpl == null ? Telegram.DEFAULT_TEMPLATE : bodyTpl; }
+
+        /** One line saying where it sends: the webhook address, or the Telegram chat. */
+        public String target() { return telegram() ? "تلگرام · " + (chatId == null ? "" : chatId) : url; }
     }
 
     public static final class Msg {
@@ -240,6 +255,9 @@ public final class Db extends SQLiteOpenHelper {
         d.headers = c.getString(10);
         d.bodyType = c.getString(11);
         d.bodyTpl = c.getString(12);
+        d.kind = c.getString(13);
+        d.chatId = c.getString(14);
+        d.parseMode = c.getString(15);
         return d;
     }
 
@@ -265,6 +283,9 @@ public final class Db extends SQLiteOpenHelper {
             v.put("headers", d.headers);
             v.put("body_type", d.bodyType);
             v.put("body_tpl", d.bodyTpl);
+            v.put("kind", d.kind);
+            v.put("chat_id", d.chatId);
+            v.put("parse_mode", d.parseMode);
             if (d.id == 0) d.id = db.insert("dests", null, v);
             else db.update("dests", v, "id=?", args(d.id));
             db.delete("dest_banks", "dest_id=?", args(d.id));

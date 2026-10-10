@@ -76,6 +76,9 @@ public final class Backup {
             j.putOpt("headers", d.headers);
             j.putOpt("body_type", d.bodyType);
             j.putOpt("body_tpl", d.bodyTpl);
+            j.putOpt("kind", d.kind);
+            j.putOpt("chat_id", d.chatId);
+            j.putOpt("parse_mode", d.parseMode);
             dests.put(j);
         }
         o.put("dests", dests);
@@ -121,6 +124,9 @@ public final class Backup {
             d.headers = opt(j, "headers");
             d.bodyType = opt(j, "body_type");
             d.bodyTpl = opt(j, "body_tpl");
+            d.kind = opt(j, "kind");
+            d.chatId = opt(j, "chat_id");
+            d.parseMode = opt(j, "parse_mode");
             Set<String> only = new HashSet<>();
             JSONArray b = j.optJSONArray("banks");
             for (int k = 0; b != null && k < b.length(); k++) only.add(b.optString(k));

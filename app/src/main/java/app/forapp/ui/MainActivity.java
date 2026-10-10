@@ -477,7 +477,7 @@ public final class MainActivity extends BaseActivity {
             TextView st = Ui.text(this, "در حال ارسال…", 12.5f, R.color.mid, Ui.W_BOLD);
             r.addView(st);
             card.addView(r);
-            TextView url = Ui.ellipsize(Ui.text(this, d.url, 11.5f, R.color.mid, Ui.W_REGULAR));
+            TextView url = Ui.ellipsize(Ui.text(this, d.target(), 11.5f, R.color.mid, Ui.W_REGULAR));
             url.setTextDirection(View.TEXT_DIRECTION_LTR);
             url.setTypeface(android.graphics.Typeface.MONOSPACE);
             Ui.pad(url, 26, 4, 0, 0);

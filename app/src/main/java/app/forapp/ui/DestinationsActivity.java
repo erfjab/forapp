@@ -86,7 +86,7 @@ public final class DestinationsActivity extends BaseActivity {
             top.addView(sw);
             box.addView(top);
 
-            TextView url = Ui.ellipsize(Ui.text(this, d.url, 11.5f, R.color.mid, Ui.W_REGULAR));
+            TextView url = Ui.ellipsize(Ui.text(this, d.target(), 11.5f, R.color.mid, Ui.W_REGULAR));
             url.setTypeface(android.graphics.Typeface.MONOSPACE);
             url.setTextDirection(View.TEXT_DIRECTION_LTR);
             url.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);

@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,7 +30,8 @@ public final class Request {
 
     /** Every placeholder, with what it holds (shown in the editor). */
     public static final String[][] VARS = {
-            {"amount", "مبلغ به عدد"}, {"code", "کد سه‌رقمی تطبیق"}, {"unit", "rial یا toman"},
+            {"amount", "مبلغ به عدد"}, {"amount_text", "مبلغ خوانا، مثل ۱٬۰۰۰٬۱۲۳"}, {"code", "کد سه‌رقمی تطبیق"},
+            {"unit", "rial یا toman"}, {"unit_fa", "ریال یا تومان"}, {"date", "تاریخ شمسی، مثل ۱۴۰۵/۰۷/۱۸"}, {"time", "ساعت، مثل ۱۴:۳۵"},
             {"body", "متن کامل پیامک"}, {"sender", "شماره‌ی فرستنده"}, {"bank", "نام بانک"},
             {"is_deposit", "واریز است یا نه"}, {"received_at", "زمان دریافت (ISO)"}, {"received_at_ms", "زمان دریافت (میلی‌ثانیه)"},
             {"id", "شناسه‌ی یکتای پیامک"}, {"attempt", "شماره‌ی تلاش"}, {"test", "آزمایشی است یا نه"},
@@ -63,6 +65,11 @@ public final class Request {
         v.put("amount", m.amount);
         v.put("code", m.amount == null ? null : SmsParser.code(m.amount));
         v.put("unit", m.unit);
+        v.put("amount_text", m.amount == null ? null : Fa.group(m.amount));
+        v.put("unit_fa", "toman".equals(m.unit) ? "تومان" : "rial".equals(m.unit) ? "ریال" : null);
+        int[] j = Fa.jalali(m.at, TimeZone.getDefault());
+        v.put("date", Fa.d(String.format(Locale.US, "%04d/%02d/%02d", j[0], j[1], j[2])));
+        v.put("time", Fa.time(m.at, TimeZone.getDefault()));
         v.put("is_deposit", m.deposit);
         v.put("received_at", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date(m.at)));
         v.put("received_at_ms", m.at);
@@ -87,6 +94,7 @@ public final class Request {
     }
 
     public static Request build(Db.Dest d, Map<String, Object> v) {
+        if (d.telegram()) return Telegram.build(d, v, Boolean.TRUE.equals(v.get("test")));
         Request r = new Request();
         r.method = d.method();
         String type = "GET".equals(r.method) ? NONE : d.bodyType();
@@ -109,7 +117,7 @@ public final class Request {
         return r;
     }
 
-    private enum Enc { JSON, FORM, URL, RAW }
+    enum Enc { JSON, FORM, URL, RAW, HTML }
     private static final Pattern VAR = Pattern.compile("\\{\\{\\s*([a-z_]+)\\s*\\}\\}");
 
     static String fill(String tpl, Map<String, Object> v, Enc enc) {
@@ -138,6 +146,8 @@ public final class Request {
                 } catch (java.io.UnsupportedEncodingException e) {
                     throw new AssertionError(e); // UTF-8 always exists
                 }
+            case HTML:
+                return o == null ? "" : Telegram.escape(String.valueOf(o));
             default:
                 return o == null ? "" : String.valueOf(o);
         }
@@ -156,16 +166,14 @@ public final class Request {
         }
     }
 
-    /** The request as text, like an HTTP log. The API key is shortened unless {@code showKey}. */
+    /** The request as text, like an HTTP log. The API key (or bot token, in the address) is shortened unless {@code showKey}. */
     public String describe(String apiKey, boolean showKey) {
         StringBuilder b = new StringBuilder(method).append(' ').append(url).append('\n');
-        for (String[] h : headers) {
-            String value = h[1];
-            if (!showKey && apiKey != null && apiKey.length() > 0) value = value.replace(apiKey, mask(apiKey));
-            b.append(h[0]).append(": ").append(value).append('\n');
-        }
+        for (String[] h : headers) b.append(h[0]).append(": ").append(h[1]).append('\n');
         if (body != null) b.append('\n').append(body);
-        return b.toString().trim();
+        String s = b.toString().trim();
+        String k = apiKey == null ? "" : apiKey.trim();
+        return showKey || k.isEmpty() ? s : s.replace(k, mask(k));
     }
 
     private static String mask(String key) {

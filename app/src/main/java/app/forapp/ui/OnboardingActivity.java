@@ -223,7 +223,7 @@ public final class OnboardingActivity extends BaseActivity {
                     return false;
                 }, "تنظیم بانک‌ها", () -> startActivity(new Intent(this, BanksActivity.class))));
         setup.add(setupPage("اولین مقصد",
-                "آدرس وبهوک سرورتان و کلید API را بدهید. با «ارسال آزمایشی» همان لحظه ببینید جواب می‌دهد یا نه.",
+                "آدرس وبهوک سرورتان و کلید API را بدهید، یا یک بات تلگرام و چت آیدی. با «ارسال آزمایشی» همان لحظه ببینید می‌رسد یا نه.",
                 R.drawable.ic_send, () -> !Db.get(this).dests().isEmpty(), "افزودن مقصد",
                 () -> startActivity(new Intent(this, DestinationEditActivity.class))));
     }
