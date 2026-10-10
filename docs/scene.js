@@ -1,9 +1,10 @@
-// Hero: a phone running ForApp's home screen. Deposits arrive as SMS, land in the log and go out to the webhook.
+// Hero: a phone running ForApp's home screen. Deposits arrive as SMS, land in the log and go out to a webhook and a Telegram group.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const host = document.getElementById('scene');
-const hook = document.getElementById('hook');
+const cards = [document.getElementById('c-hook'), document.getElementById('c-tg')];
+const $ = (id) => document.getElementById(id);
 const C = { bg: '#FFFFFF', fg: '#111111', mid: '#6B6B6B', faint: '#ECECEC', line: '#F2F2F2', red: '#E4002B' };
 const fa = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 const group = (n) => fa(String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
@@ -157,7 +158,7 @@ function draw() {
     g.fillStyle = C.red; g.beginPath(); g.arc(329 * S, (ny + 27) * S, 2.2 * S, 0, Math.PI * 2); g.fill();
     const bw = text('بانک ' + st.notifRow.bank, 298, ny + 31, 13, C.fg, 900);
     text('· پیامک · اکنون', 298 - bw - 6, ny + 30, 10.5, C.mid, 400);
-    const msg = 'واریز: ' + group(st.notifRow.amount * 10) + ' ریال';
+    const msg = 'واریز: ' + group(st.notifRow.amount) + ' ریال';
     text(msg, 298, ny + 57, 12, C.mid, 400);
   }
 }
@@ -273,8 +274,8 @@ async function start() {
   new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) loop(); }).observe(host);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // deposit cycle: notification -> row slides in -> webhook card
-  let next = 1.2, dirty = true, hookOff = 0;
+  // deposit cycle: notification -> row slides in -> one card per destination
+  let next = 1.2, dirty = true, cardsOff = 0;
   function arrive(t) {
     clock += 1 + Math.floor(Math.random() * 4);
     const d = deposit();
@@ -283,9 +284,13 @@ async function start() {
       rows.unshift(d); rows.length = Math.min(rows.length, 16);
       count++; sum += d.amount; hours[12] = Math.min(6, hours[12] + 1);
       st.insert = 0; st.flash = 1;
-      document.getElementById('hook-code').textContent = fa(String(d.amount).slice(-3));
-      document.getElementById('hook-key').textContent = Math.random().toString(16).slice(2, 6) + '…' + Math.random().toString(16).slice(2, 5);
-      hook.classList.add('on'); hookOff = t + 3.4;
+      const code = String(d.amount).slice(-3);
+      $('hook-code').textContent = fa(code);
+      $('hook-ms').textContent = fa(90 + Math.floor(Math.random() * 160)) + 'ms';
+      $('tg-amt').textContent = group(d.amount).replace(/,/g, '٬');
+      $('tg-code').textContent = code;
+      cards.forEach((c, i) => setTimeout(() => c.classList.add('on'), i * 380));
+      cardsOff = t + 3.3;
     }, 900);
     next = t + 4.2;
   }
@@ -303,7 +308,7 @@ async function start() {
     const dt = Math.min(timer.getDelta(), 0.05); t += dt;
 
     if (!reduce && t > next) arrive(t);
-    if (hookOff && t > hookOff) { hook.classList.remove('on'); hookOff = 0; }
+    if (cardsOff && t > cardsOff) { cards.forEach((c) => c.classList.remove('on')); cardsOff = 0; }
     if (st.nt >= 0) { st.nt += dt; if (st.nt > 3.5) st.nt = -1; dirty = true; }
     if (st.insert < 1.6) { st.insert += dt / 0.5; dirty = true; }
     if (st.flash > 0.01) { st.flash *= 0.94; dirty = true; }

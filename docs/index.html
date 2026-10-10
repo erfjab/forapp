@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>فوراپ | پیامک واریز، مستقیم به وبهوک شما</title>
-<meta name="description" content="فوراپ پیامک واریز بانک را روی گوشی اندروید می‌خواند و همان لحظه به وبهوک شما می‌فرستد.">
+<title>فوراپ | پیامک واریز، مستقیم به وبهوک و تلگرام</title>
+<meta name="description" content="فوراپ پیامک واریز بانک را روی گوشی اندروید می‌خواند و همان لحظه به وبهوک سرور شما یا گروه تلگرام می‌فرستد.">
 <meta name="theme-color" content="#FFFFFF">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/vazir_black.ttf" as="font" type="font/ttf" crossorigin>
@@ -46,15 +46,30 @@ h1 { font-size: clamp(40px, 5.6vw, 76px); font-weight: 900; line-height: 1.22; l
 .meta { font-size: 12px; color: var(--mid); margin-top: 14px; }
 #scene { position: relative; height: min(760px, 92vh); }
 #scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.hook { position: absolute; left: 0; bottom: 18%; width: 230px; background: var(--bg); border: 1px solid var(--faint); padding: 12px 14px; font-size: 12px; box-shadow: 0 24px 48px -28px rgba(0,0,0,.35); opacity: 0; transform: translateY(10px); transition: opacity .35s, transform .35s; pointer-events: none; }
-.hook.on { opacity: 1; transform: none; }
-.hook .top { display: flex; justify-content: space-between; align-items: center; }
-.hook .m { font: 700 12px ui-monospace, Consolas, monospace; direction: ltr; }
-.hook .ok { display: flex; gap: 4px; align-items: center; font: 700 12px ui-monospace, Consolas, monospace; }
-.hook .ok svg { width: 14px; height: 14px; }
-.hook .u { color: var(--mid); font: 11px ui-monospace, Consolas, monospace; direction: ltr; text-align: left; margin-top: 4px; }
-.hook .c { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; color: var(--mid); }
-.hook .c b { font-size: 15px; font-weight: 900; }
+/* Where each deposit went: one card per destination, dealt out next to the phone */
+.feed { position: absolute; left: 0; bottom: 16%; width: 268px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.card { background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border: 1px solid var(--faint); border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 24px 48px -24px rgba(0,0,0,.28);
+  opacity: 0; transform: translate(-14px, 8px) scale(.98); transition: opacity .45s ease, transform .55s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+.card.on { opacity: 1; transform: none; }
+.ch { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; }
+.badge { width: 30px; height: 30px; border-radius: 9px; background: var(--fg); color: #fff; display: grid; place-items: center; flex: none; }
+.badge svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.badge.tg { background: #2AABEE; border-radius: 50%; }
+.badge.tg svg { fill: #fff; stroke: #fff; stroke-width: 1.2; width: 15px; height: 15px; margin-inline-end: 2px; }
+.who { flex: 1; display: flex; flex-direction: column; line-height: 1.35; }
+.who b { font-size: 13.5px; font-weight: 900; }
+.who small { font-size: 11px; color: var(--mid); }
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 9px 3px 8px; border-radius: 99px; background: var(--line); }
+.pill svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+#c-hook .pill { font-family: ui-monospace, Consolas, monospace; direction: ltr; }
+.cb { border-top: 1px solid var(--line); padding: 10px 14px 12px; font-size: 12.5px; }
+.cb .req-line { font: 11.5px ui-monospace, Consolas, monospace; direction: ltr; text-align: left; color: var(--mid); display: flex; justify-content: space-between; }
+.cb .req-line span { color: #9a9a9a; }
+.cb .code { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; color: var(--mid); }
+.cb .code b { font-size: 22px; font-weight: 900; color: var(--red); line-height: 1; letter-spacing: .5px; }
+.tgm { line-height: 1.75; }
+.tgm b { font-weight: 900; font-size: 13px; }
+.tgm code { font: 700 12px ui-monospace, Consolas, monospace; background: var(--redbg); color: var(--red); padding: 1px 6px; border-radius: 5px; }
 
 /* widget-like numbers strip */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--faint); border-bottom: 1px solid var(--faint); }
@@ -75,6 +90,28 @@ h2 { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 1.3; ma
 .row h3 { font-size: 18px; font-weight: 900; }
 .row p { font-size: 14.5px; color: var(--mid); margin-top: 2px; }
 .row code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; direction: ltr; unicode-bidi: isolate; background: var(--line); padding: 1px 6px; }
+
+/* telegram */
+.tgsec { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; }
+.facts { margin-top: 28px; border-top: 1px solid var(--fg); }
+.facts div { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--faint); font-size: 14px; }
+.facts b { font-weight: 900; }
+.facts span { color: var(--mid); }
+.facts code { font: 12px ui-monospace, Consolas, monospace; background: var(--line); padding: 1px 5px; color: var(--fg); unicode-bidi: isolate; }
+.chat { border: 1px solid var(--faint); border-radius: 22px; overflow: hidden; background: #fff; box-shadow: 0 40px 80px -48px rgba(0,0,0,.35); }
+.chat-top { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--faint); }
+.chat-top .av { width: 40px; height: 40px; border-radius: 50%; background: var(--fg); display: grid; place-items: center; }
+.chat-top .av i { width: 18px; height: 14px; background: linear-gradient(#fff 0 3px, transparent 3px 5.5px, #fff 5.5px 8.5px, transparent 8.5px 11px, #fff 11px 14px); position: relative; }
+.chat-top .av i::after { content: ""; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--red); left: -1px; top: 4.5px; }
+.chat-top b { display: block; font-size: 15px; font-weight: 900; line-height: 1.3; }
+.chat-top small { font-size: 12px; color: var(--mid); }
+.chat-body { background: #EEF2F5; padding: 18px 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+.msg { position: relative; align-self: flex-start; max-width: 88%; background: #fff; border-radius: 16px 16px 16px 6px; padding: 10px 14px 22px; font-size: 14px; line-height: 1.8; box-shadow: 0 1px 1px rgba(0,0,0,.06); }
+.msg .from { color: #2A8BD4; font-weight: 900; font-size: 13px; }
+.msg b { font-weight: 900; }
+.msg code { font: 700 13px ui-monospace, Consolas, monospace; color: var(--red); }
+.msg blockquote { margin-top: 8px; border-inline-start: 3px solid #2A8BD4; background: rgba(42,139,212,.07); border-radius: 4px; padding: 4px 10px; font-size: 13px; color: #333; }
+.msg .t { position: absolute; left: 12px; bottom: 6px; font-size: 11px; color: #9aa4ad; }
 
 /* setup */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 48px; border-top: 1px solid var(--fg); }
@@ -114,9 +151,9 @@ footer a { color: var(--fg); font-weight: 700; }
 @media (max-width: 960px) {
   .hero .wrap { gap: 0; }
   #scene { height: min(620px, 86vh); }
-  .rows, .req, .join .wrap { grid-template-columns: 1fr; }
+  .rows, .req, .tgsec, .join .wrap { grid-template-columns: 1fr; }
   .rows { column-gap: 0; }
-  .hook { left: 24px; bottom: 6%; }
+  .feed { width: 236px; bottom: 10%; }
   section { padding-top: 80px; }
 }
 @media (max-width: 720px) {
@@ -135,7 +172,11 @@ footer a { color: var(--fg); font-weight: 700; }
   .cta .btn { flex: 1 1 100%; }
   .lead { font-size: 16.5px; }
   pre { font-size: 12px; padding: 20px; margin: 0 -20px; }
-  .hook { width: 196px; left: 16px; }
+  .feed { left: 12px; right: 12px; bottom: 6px; width: auto; flex-direction: row; gap: 8px; }
+  .feed .card { flex: 1; min-width: 0; border-radius: 14px; }
+  .ch { padding: 9px 10px 8px; gap: 8px; } .badge { width: 26px; height: 26px; } .pill { display: none; }
+  .cb { padding: 8px 10px 10px; } .cb .req-line { display: none; } .cb .code { margin-top: 0; } .cb .code b { font-size: 19px; }
+  .tgm b { font-size: 12px; } .tgm div { font-size: 11.5px; }
   .join .wrap { padding-top: 56px; padding-bottom: 56px; }
 }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
@@ -148,8 +189,8 @@ footer a { color: var(--fg); font-weight: 700; }
     <div class="copy">
       <div class="brand"><i></i>فوراپ<span>متن‌باز · اندروید ۸ به بالا</span></div>
       <div>
-        <h1>پیامک واریز،<br><span class="r">همان لحظه</span> روی<br>وبهوک شما.</h1>
-        <p class="lead">فوراپ پیامک واریز بانک را روی گوشی می‌خواند و بی‌درنگ به وبهوک شما می‌فرستد. دیگر لازم نیست واریزها را دستی ثبت کنید.</p>
+        <h1>پیامک واریز،<br><span class="r">همان لحظه</span> روی<br>وبهوک و تلگرام.</h1>
+        <p class="lead">فوراپ پیامک واریز بانک را روی گوشی می‌خواند و بی‌درنگ به وبهوک سرور شما و گروه تلگرام ادمین‌ها می‌فرستد. دیگر لازم نیست واریزها را دستی ثبت کنید یا مدام از صاحب کارت بپرسید.</p>
         <div class="cta">
           <a class="btn solid" href="https://github.com/erfjab/forapp/releases/latest">
             <svg class="i" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
@@ -164,10 +205,29 @@ footer a { color: var(--fg); font-weight: 700; }
       </div>
     </div>
     <div id="scene" aria-hidden="true">
-      <div class="hook" id="hook">
-        <div class="top"><span class="m">POST /webhook</span><span class="ok"><svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>200</span></div>
-        <div class="u">Idempotency-Key: <span id="hook-key">a91f…</span></div>
-        <div class="c"><span>کد تطبیق</span><b class="r ltr" id="hook-code">۴۳۷</b></div>
+      <div class="feed">
+        <div class="card" id="c-hook">
+          <div class="ch">
+            <span class="badge"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span>
+            <span class="who"><b>وبهوک</b><small>سرور اصلی</small></span>
+            <span class="pill"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>200</span>
+          </div>
+          <div class="cb">
+            <div class="req-line">POST /webhook <span id="hook-ms">۱۴۲ms</span></div>
+            <div class="code"><span>کد تطبیق</span><b class="ltr" id="hook-code">۴۳۷</b></div>
+          </div>
+        </div>
+        <div class="card" id="c-tg">
+          <div class="ch">
+            <span class="badge tg"><svg viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z" /></svg></span>
+            <span class="who"><b>تلگرام</b><small>گروه ادمین‌ها</small></span>
+            <span class="pill"><svg viewBox="0 0 24 24"><path d="M3 12.5l4 4L15 8M10 16l1 1 9-9"/></svg>ارسال شد</span>
+          </div>
+          <div class="cb tgm">
+            <b>💰 واریز <span id="tg-amt">۲٬۵۰۰٬۴۳۷</span> ریال</b>
+            <div>کد تطبیق: <code id="tg-code">437</code></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -176,7 +236,7 @@ footer a { color: var(--fg); font-weight: 700; }
 <div class="wrap">
   <div class="stats reveal">
     <div class="stat"><div class="big">۳</div><div><div class="t">رقم آخر مبلغ</div><div class="s">کد تطبیق هر واریز</div></div></div>
-    <div class="stat"><div class="big">۰</div><div><div class="t">سرور واسطه</div><div class="s">مستقیم از گوشی به وبهوک شما</div></div></div>
+    <div class="stat"><div class="big">۰</div><div><div class="t">سرور واسطه</div><div class="s">مستقیم از گوشی به وبهوک یا تلگرام</div></div></div>
     <div class="stat"><div class="big">۱</div><div><div class="t">بار ثبت</div><div class="s">هر واریز، با کلید یکتا</div></div></div>
   </div>
 </div>
@@ -192,9 +252,44 @@ footer a { color: var(--fg); font-weight: 700; }
       <div class="row reveal"><span class="no">۰۱</span><div><h3>کد تطبیق سه‌رقمی</h3><p>سه رقم آخر مبلغ (<span class="ltr">۲,۵۰۰,<span class="r">۴۳۷</span></span>) جدا فرستاده می‌شود تا واریز هر مشتری خودکار پیدا شود.</p></div></div>
       <div class="row reveal"><span class="no">۰۲</span><div><h3>مطمئن در اینترنت فیلترشده</h3><p>بی‌اتصالی تلاش حساب نمی‌شود؛ منتظر VPN می‌ماند و با وصل شدن، خودش می‌فرستد.</p></div></div>
       <div class="row reveal"><span class="no">۰۳</span><div><h3>بدون ثبت تکراری</h3><p>هر واریز <code>Idempotency-Key</code> یکتای خودش را دارد؛ هیچ پرداختی دو بار ثبت نمی‌شود.</p></div></div>
-      <div class="row reveal"><span class="no">۰۴</span><div><h3>بدون سرور واسطه</h3><p>همه‌ی داده‌ها فقط روی گوشی شماست و مستقیم به وبهوک خودتان می‌رود.</p></div></div>
+      <div class="row reveal"><span class="no">۰۴</span><div><h3>بدون سرور واسطه</h3><p>همه‌ی داده‌ها فقط روی گوشی شماست و مستقیم به وبهوک یا بات تلگرام خودتان می‌رود.</p></div></div>
       <div class="row reveal"><span class="no">۰۵</span><div><h3>درخواست دلخواه برای هر مقصد</h3><p>متد، هدرها و بدنه (JSON، فرم یا متن) با متغیرهایی مثل <code>{{amount}}</code> و پیش‌نمایش زنده.</p></div></div>
       <div class="row reveal"><span class="no">۰۶</span><div><h3>فقط بانک‌هایی که می‌خواهید</h3><p>بقیه‌ی پیامک‌ها خوانده نمی‌شوند. جزئیات و «ارسال الان» برای هر واریز، و دو ویجت صفحه‌ی اصلی.</p></div></div>
+      <div class="row reveal"><span class="no">۰۷</span><div><h3>ارسال به تلگرام</h3><p>هر مقصد می‌تواند یک بات و چت آیدی باشد؛ واریزها همان لحظه در گروه یا کانال ادمین‌ها می‌آیند، با متن و قالب دلخواه.</p></div></div>
+      <div class="row reveal"><span class="no">۰۸</span><div><h3>پشتیبان تنظیمات</h3><p>بانک‌ها، مقصدها و تنظیمات در یک فایل؛ روی گوشی تازه با یک دکمه برمی‌گردند. لاگ‌ها در فایل نیستند.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="telegram">
+  <div class="wrap tgsec">
+    <div class="reveal">
+      <p class="label">تلگرام</p>
+      <h2>هر واریز، در گروه ادمین‌ها هم.</h2>
+      <p class="sub">وقتی شماره‌کارت مال یک نفر است و پاسخ‌گویی با بقیه، ادمین‌ها دیگر لازم نیست مدام از صاحب کارت بپرسند. یک مقصد را وبهوک بگذارید، یکی را تلگرام؛ یا هر چندتا که لازم است.</p>
+      <div class="facts">
+        <div><b>راه‌اندازی</b><span>توکن بات از ‎@BotFather و چت آیدی؛ چت آیدی را خود برنامه پیدا می‌کند.</span></div>
+        <div><b>متن پیام</b><span>دلخواه، با متغیرهایی مثل <code>{{amount_text}}</code>، <code>{{code}}</code> و <code>{{bank}}</code>.</span></div>
+        <div><b>قالب‌بندی</b><span><code>**پررنگ**</code>، <code>`تک‌فاصله`</code>، <code>&gt; نقل‌قول</code> و پیش‌نمایش زنده.</span></div>
+        <div><b>فیلترینگ</b><span>تا VPN وصل شود در صف می‌ماند؛ یا سرور Bot API خودتان را بدهید.</span></div>
+      </div>
+    </div>
+    <div class="chat reveal" aria-hidden="true">
+      <div class="chat-top"><span class="av"><i></i></span><span><b>گروه ادمین‌ها</b><small>ForApp Bot و ۳ عضو</small></span></div>
+      <div class="chat-body">
+        <div class="msg">
+          <div class="from">ForApp Bot</div>
+          <b>💰 واریز ۲٬۵۰۰٬۴۳۷ ریال</b><br>کد تطبیق: <code>437</code><br>ملت · ۱۴۰۵/۰۷/۱۸ ساعت ۱۴:۳۵
+          <blockquote>بانک ملت<br>واریز:2,500,437<br>مانده:15,200,000</blockquote>
+          <span class="t">14:35</span>
+        </div>
+        <div class="msg">
+          <div class="from">ForApp Bot</div>
+          <b>💰 واریز ۸۹۰٬۱۲۸ تومان</b><br>کد تطبیق: <code>128</code><br>سامان · ۱۴۰۵/۰۷/۱۸ ساعت ۱۴:۵۱
+          <blockquote>واریز به حساب<br>مبلغ: 890,128 تومان</blockquote>
+          <span class="t">14:51</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -207,8 +302,8 @@ footer a { color: var(--fg); font-weight: 700; }
     </div>
     <div class="steps">
       <div class="step reveal"><div class="big">۱</div><h3>نصب و اجازه‌ها</h3><p>APK را نصب کنید و قدم‌ها را بروید: اجازه‌ی پیامک، باتری، بانک‌ها و مقصد.</p></div>
-      <div class="step reveal"><div class="big">۲</div><h3>آدرس وبهوک</h3><p>آدرس و کلید مقصد را بدهید؛ اگر لازم است درخواست را برای سرورتان شخصی کنید.</p></div>
-      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>با «ارسال آزمایشی» مطمئن شوید وبهوک شما جواب می‌دهد. تمام.</p></div>
+      <div class="step reveal"><div class="big">۲</div><h3>وبهوک یا تلگرام</h3><p>آدرس و کلید وبهوک را بدهید، یا توکن بات تلگرام و چت آیدی؛ چت آیدی را خود برنامه پیدا می‌کند.</p></div>
+      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>با «ارسال آزمایشی» مطمئن شوید پیام به مقصد می‌رسد. تمام.</p></div>
     </div>
   </div>
 </section>
