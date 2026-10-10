@@ -91,6 +91,56 @@ h2 { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 1.3; ma
 .row p { font-size: 14.5px; color: var(--mid); margin-top: 2px; }
 .row code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; direction: ltr; unicode-bidi: isolate; background: var(--line); padding: 1px 6px; }
 
+/* sections */
+.head { max-width: 640px; }
+.head .sub { margin-top: 4px; }
+.flow h3 { margin-bottom: 0; }
+.dgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
+.dest { border: 1px solid var(--faint); border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 16px; transition: opacity .3s; background: #fff; }
+.dest header { display: flex; align-items: center; gap: 12px; }
+.dest .who b { font-size: 18px; }
+.dest .who small { font-size: 12.5px; }
+.dest pre { margin: 0; border-radius: 14px; font-size: 12.5px; padding: 18px 20px; flex: 1; }
+.dest .badge { width: 40px; height: 40px; border-radius: 12px; }
+.dest .badge svg { width: 20px; height: 20px; }
+.tgview { background: #EEF2F5; border-radius: 14px; padding: 16px; flex: 1; }
+.tgview .msg { max-width: 100%; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips li { font-size: 12.5px; border: 1px solid var(--faint); border-radius: 99px; padding: 3px 12px; color: var(--mid); }
+.chips b { color: var(--fg); }
+.chips code { font: 12px ui-monospace, Consolas, monospace; }
+.sw { width: 44px; height: 26px; border-radius: 99px; border: 0; background: var(--faint); position: relative; cursor: pointer; transition: background .2s; flex: none; }
+.sw::after { content: ""; position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: right .2s; }
+.sw.on { background: var(--fg); }
+.sw.on::after { right: 21px; }
+.dest.off > :not(header) { opacity: .25; filter: grayscale(1); }
+.wgrid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 56px; align-items: center; }
+.home { border-radius: 28px; padding: 28px 24px 18px; background: radial-gradient(120% 90% at 20% 0%, #c9d3dc, #8e9aa6 55%, #5c6670); box-shadow: 0 40px 80px -48px rgba(0,0,0,.5); }
+.w-strip, .w-compact { background: #fff; border-radius: 26px; box-shadow: 0 8px 24px -12px rgba(0,0,0,.35); }
+.w-strip { display: flex; align-items: center; gap: 14px; padding: 14px 20px; }
+.w-strip i { width: 1px; height: 36px; background: var(--faint); }
+.ws { display: flex; flex-direction: column; line-height: 1.2; }
+.ws.grow { flex: 1; }
+.ws b { font-size: 34px; font-weight: 900; line-height: 1; }
+.ws small, .w-compact small { font-size: 11.5px; color: var(--mid); display: block; }
+b.mid { font-size: 17px !important; font-weight: 900; line-height: 1.4; }
+b.sm { font-size: 22px !important; }
+small.r { color: var(--red) !important; font-weight: 700; }
+.hrow { display: flex; gap: 16px; margin-top: 16px; align-items: stretch; }
+.w-compact { flex: 1; display: flex; align-items: center; gap: 14px; padding: 12px 20px; }
+.w-compact > b { font-size: 52px; font-weight: 900; line-height: 1; }
+.apps { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 8px; }
+.apps span { aspect-ratio: 1; border-radius: 16px; background: rgba(255,255,255,.35); }
+.apps .me { background: var(--fg); display: grid; place-items: center; }
+.apps .me i { width: 40%; height: 30%; background: linear-gradient(#fff 0 22%, transparent 22% 39%, #fff 39% 61%, transparent 61% 78%, #fff 78%); }
+.wl { display: flex; justify-content: space-between; margin-top: 14px; color: rgba(255,255,255,.9); font-size: 12px; font-weight: 700; padding: 0 6px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--fg); }
+.tile { padding: 22px 0; border-bottom: 1px solid var(--faint); display: flex; flex-direction: column; }
+.tile:not(:nth-child(3n+1)) { border-inline-start: 1px solid var(--faint); padding-inline-start: 24px; }
+.tile b { font-size: 17px; font-weight: 900; }
+.tile span { font-size: 13.5px; color: var(--mid); }
+#features, #how { padding-top: 72px; }
+
 /* what & how */
 .pair { display: grid; grid-template-columns: 1fr 1fr; margin-top: 40px; border-top: 1px solid var(--fg); }
 .side { padding: 28px 0 28px 32px; }
@@ -193,7 +243,8 @@ footer a { color: var(--fg); font-weight: 700; }
 @media (max-width: 960px) {
   .hero .wrap { gap: 0; }
   #scene { height: min(620px, 86vh); }
-  .rows, .req, .tgsec, .faq, .join .wrap { grid-template-columns: 1fr; }
+  .rows, .req, .tgsec, .faq, .dgrid, .wgrid, .join .wrap { grid-template-columns: 1fr; }
+  .wgrid { gap: 28px; }
   .faq { gap: 0; }
   .flow, .groups { grid-template-columns: 1fr 1fr; }
   .flow li:nth-child(2)::after { display: none; }
@@ -212,6 +263,11 @@ footer a { color: var(--fg); font-weight: 700; }
   .wrap { padding: 0 20px; }
   #scene { margin: 0 -20px; height: 470px; }
   .stats, .steps, .pair, .flow, .groups { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr 1fr; gap: 10px; } .flow li { padding: 16px 14px; } .flow h3 { font-size: 14.5px; } .vis { font-size: 11.5px; }
+  .tiles { grid-template-columns: 1fr 1fr; }
+  .tile:not(:nth-child(3n+1)) { border-inline-start: 0; padding-inline-start: 0; }
+  .tile:nth-child(even) { border-inline-start: 1px solid var(--faint); padding-inline-start: 16px; }
+  .home { padding: 18px 14px 12px; } .ws b { font-size: 26px; } .w-compact > b { font-size: 40px; } .w-strip { gap: 10px; padding: 12px 14px; }
   .flow li::after { display: none; }
   .side, .side + .side, .group, .group + .group { padding: 22px 0; border-inline-start: 0; }
   .side + .side, .group + .group { border-top: 1px solid var(--faint); }
@@ -239,7 +295,7 @@ footer a { color: var(--fg); font-weight: 700; }
       <div class="brand"><i></i>فوراپ<span>متن‌باز · اندروید ۸ به بالا</span></div>
       <div>
         <h1>پیامک واریز،<br><span class="r">همان لحظه</span> روی<br>وبهوک و تلگرام.</h1>
-        <p class="lead">یک اپ اندروید که روی گوشی صاحب کارت نصب می‌شود، پیامک واریز بانک را همان لحظه می‌خواند و برای سرور شما و گروه تلگرام ادمین‌ها می‌فرستد. واریزها خودکار ثبت می‌شوند، بدون چک کردن دستی پیامک‌ها.</p>
+        <p class="lead">روی گوشی صاحب کارت نصب کنید؛ هر واریز همان لحظه به سرور شما یا گروه تلگرام می‌رسد. بدون چک کردن دستی پیامک‌ها.</p>
         <div class="cta">
           <a class="btn solid" href="https://github.com/erfjab/forapp/releases/latest">
             <svg class="i" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
@@ -282,191 +338,112 @@ footer a { color: var(--fg); font-weight: 700; }
   </div>
 </header>
 
-<section id="what">
+<section id="flow">
   <div class="wrap">
-    <div class="reveal">
-      <p class="label">فوراپ برای چیست؟</p>
-      <h2>برای فروشگاه‌ها و ربات‌هایی که پول را کارت‌به‌کارت می‌گیرند.</h2>
+    <div class="head reveal">
+      <p class="label">چطور کار می‌کند</p>
+      <h2>از پیامک بانک تا تأیید سفارش، خودکار.</h2>
+      <p class="sub">به هر سفارش مبلغی با سه رقم آخر یکتا بدهید. همین سه رقم «کد تطبیق» است.</p>
     </div>
-    <div class="pair">
-      <div class="side reveal">
-        <span class="tag">بدون فوراپ</span>
-        <p>مشتری پول را کارت‌به‌کارت می‌کند. یک نفر باید مدام پیامک‌های بانک را روی گوشی صاحب کارت نگاه کند، واریز را پیدا کند و سفارش را دستی تأیید کند. ادمین‌ها هم هر بار باید از صاحب کارت بپرسند «این پول آمد؟».</p>
-      </div>
-      <div class="side on reveal">
-        <span class="tag">با فوراپ</span>
-        <p>فوراپ روی همان گوشی صاحب کارت نصب می‌شود. هر پیامک واریز را همان لحظه می‌خواند، مبلغ را درمی‌آورد و برای سرور شما (وبهوک) و گروه تلگرام ادمین‌ها می‌فرستد. سفارش خودکار تأیید می‌شود و همه همان لحظه خبردار می‌شوند.</p>
-      </div>
+    <ol class="flow">
+      <li class="reveal"><span class="n">۱</span><h3>مشتری واریز می‌کند</h3>
+        <div class="vis sms"><small>بانک ملت</small>واریز: 2,500,<span class="r">437</span><br>مانده: 15,200,000</div></li>
+      <li class="reveal"><span class="n">۲</span><h3>فوراپ پیامک را می‌خواند</h3>
+        <div class="vis kv"><span>مبلغ</span><b>2,500,437</b><span>کد تطبیق</span><b class="r">437</b></div></li>
+      <li class="reveal"><span class="n">۳</span><h3>به مقصدها می‌فرستد</h3>
+        <div class="vis dests"><span><i class="d"></i>وبهوک</span><span><i class="d tg"></i>تلگرام</span></div></li>
+      <li class="reveal"><span class="n r">۴</span><h3>سفارش تأیید می‌شود</h3>
+        <div class="vis ok">✓ سفارش ۴۳۷ پرداخت شد</div></li>
+    </ol>
+  </div>
+</section>
+
+<section id="dests">
+  <div class="wrap">
+    <div class="head reveal">
+      <p class="label">مقصدها</p>
+      <h2>وبهوک، تلگرام، یا هر دو.</h2>
+      <p class="sub">هر مقصد جدا تنظیم می‌شود. هر کدام را خواستید روشن کنید.</p>
+    </div>
+    <div class="dgrid">
+      <article class="dest reveal" data-dest>
+        <header><span class="badge"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></span>
+          <span class="who"><b>وبهوک</b><small>سرور، سایت یا ربات شما</small></span>
+          <button class="sw on" type="button" aria-label="روشن یا خاموش"></button></header>
+        <pre><span class="k">POST</span> https://your.site/webhook
+<span class="k">Idempotency-Key:</span> <span class="s">7f3c…a91</span>
+
+{ <span class="s">"amount"</span>: 2500<span class="r">437</span>, <span class="s">"code"</span>: <span class="r">"437"</span>,
+  <span class="s">"bank"</span>: <span class="s">"mellat"</span>, <span class="s">"is_deposit"</span>: true }</pre>
+        <ul class="chips"><li>متد، هدر و بدنه‌ی دلخواه</li><li>بدون ثبت تکراری</li><li>تلاش دوباره</li></ul>
+      </article>
+      <article class="dest reveal" data-dest>
+        <header><span class="badge tg"><svg viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z"/></svg></span>
+          <span class="who"><b>تلگرام</b><small>گروه یا کانال ادمین‌ها</small></span>
+          <button class="sw on" type="button" aria-label="روشن یا خاموش"></button></header>
+        <div class="tgview">
+          <div class="msg"><div class="from">ForApp Bot</div><b>💰 واریز ۲٬۵۰۰٬۴۳۷ ریال</b><br>کد تطبیق: <code>437</code>
+            <blockquote>بانک ملت · واریز:2,500,437</blockquote><span class="t">14:35</span></div>
+        </div>
+        <ul class="chips"><li>متن دلخواه</li><li><b>پررنگ</b>، <code>کد</code>، نقل‌قول</li><li>پیدا کردن چت آیدی</li></ul>
+      </article>
     </div>
   </div>
 </section>
 
-<section id="flow">
-  <div class="wrap">
-    <div class="reveal">
-      <p class="label">چطور کار می‌کند؟</p>
-      <h2>از واریز مشتری تا تأیید سفارش، در چند ثانیه.</h2>
-      <p class="sub">راز کار «کد تطبیق» است: سه رقم آخر مبلغ. به هر سفارش مبلغی با سه رقم آخر یکتا بدهید؛ فوراپ همین سه رقم را جدا برایتان می‌فرستد.</p>
+<section id="widgets">
+  <div class="wrap wgrid">
+    <div class="head reveal">
+      <p class="label">ویجت</p>
+      <h2>واریزهای امروز، روی صفحه‌ی اصلی.</h2>
+      <p class="sub">بدون باز کردن برنامه ببینید چند واریز آمده، چقدر و چندتا نرسیده.</p>
     </div>
-    <ol class="flow">
-      <li class="reveal">
-        <span class="n">۱</span>
-        <h3>مشتری واریز می‌کند</h3>
-        <p>سفارش ۴۳۷ مبلغ <b class="ltr">۲,۵۰۰,<span class="r">۴۳۷</span></b> ریال دارد و مشتری همین را کارت‌به‌کارت می‌کند.</p>
-        <div class="vis sms"><small>بانک ملت</small>واریز: 2,500,437<br>مانده: 15,200,000</div>
-      </li>
-      <li class="reveal">
-        <span class="n">۲</span>
-        <h3>فوراپ پیامک را می‌خواند</h3>
-        <p>فقط پیامک بانک‌هایی که انتخاب کرده‌اید. مبلغ و کد تطبیق را درمی‌آورد و برداشت و تبلیغ را کنار می‌گذارد.</p>
-        <div class="vis kv"><span>مبلغ</span><b>2,500,437</b><span>کد تطبیق</span><b class="r">437</b></div>
-      </li>
-      <li class="reveal">
-        <span class="n">۳</span>
-        <h3>به مقصدهای شما می‌فرستد</h3>
-        <p>به وبهوک سرور یا ربات شما، و اگر بخواهید به گروه تلگرام ادمین‌ها. اینترنت قطع باشد، صبر می‌کند و بعد می‌فرستد.</p>
-        <div class="vis dests"><span><i class="d"></i>وبهوک · ۲۰۰</span><span><i class="d tg"></i>تلگرام · ارسال شد</span></div>
-      </li>
-      <li class="reveal">
-        <span class="n r">۴</span>
-        <h3>سفارش تأیید می‌شود</h3>
-        <p>سرور شما سفارشی را که کدش ۴۳۷ است پیدا و تأیید می‌کند. ادمین‌ها هم پیامش را در تلگرام می‌بینند.</p>
-        <div class="vis ok">✓ سفارش ۴۳۷ پرداخت شد</div>
-      </li>
-    </ol>
+    <div class="home reveal" aria-hidden="true">
+      <div class="w-strip">
+        <div class="ws"><b>۲۴</b><small>واریز امروز</small></div><i></i>
+        <div class="ws grow"><b class="mid">۱۸٬۷۴۰٬۵۰۰</b><small>تومان</small></div><i></i>
+        <div class="ws"><b class="r sm">۲</b><small class="r">ناموفق</small></div>
+      </div>
+      <div class="hrow">
+        <div class="w-compact"><b>۲۴</b><div><b class="mid">۱۸٬۷۴۰٬۵۰۰</b><small>تومان امروز</small><small class="r">۲ ناموفق</small></div></div>
+        <div class="apps"><span></span><span></span><span class="me"><i></i></span><span></span></div>
+      </div>
+      <div class="wl"><span>نوار ۴×۱</span><span>جمع‌وجور ۲×۱</span></div>
+    </div>
   </div>
 </section>
 
 <section id="features">
   <div class="wrap">
-    <div class="reveal">
-      <p class="label">ویژگی‌ها</p>
-      <h2>همه‌چیز روی گوشی خودتان.</h2>
-    </div>
-    <div class="groups">
-      <div class="group reveal">
-        <h3>کجا بفرستد</h3>
-        <ul>
-          <li><b>وبهوک</b> به سرور، سایت یا ربات شما؛ با متد، هدر و بدنه‌ی دلخواه.</li>
-          <li><b>تلگرام</b>؛ یک بات و چت آیدی، با متن و قالب دلخواه.</li>
-          <li><b>چند مقصد با هم</b>، و برای هر کدام بانک‌های جدا.</li>
-        </ul>
-      </div>
-      <div class="group reveal">
-        <h3>مطمئن و بی‌خطا</h3>
-        <ul>
-          <li><b>اینترنت فیلترشده؟</b> تا VPN وصل شود صبر می‌کند و خودش می‌فرستد.</li>
-          <li><b>بدون ثبت تکراری</b>؛ هر واریز یک شناسه‌ی یکتا دارد.</li>
-          <li><b>واریز جعلی نه</b>؛ فقط پیامک شماره‌ی واقعی بانک خوانده می‌شود.</li>
-        </ul>
-      </div>
-      <div class="group reveal">
-        <h3>شفاف و راحت</h3>
-        <ul>
-          <li><b>گزارش کامل</b> هر واریز، درخواست ارسالی و «ارسال الان».</li>
-          <li><b>ویجت</b> صفحه‌ی اصلی با تعداد و مبلغ امروز.</li>
-          <li><b>بیش از ۳۰ بانک</b> و پشتیبان‌گیری از تنظیمات در یک فایل.</li>
-        </ul>
-      </div>
-      <div class="group reveal">
-        <h3>امن و آزاد</h3>
-        <ul>
-          <li><b>بدون سرور واسطه</b>؛ داده‌ها فقط روی گوشی شماست.</li>
-          <li><b>متن‌باز و رایگان</b>، بدون تبلیغ و بدون ثبت‌نام.</li>
-          <li><b>اندروید ۸ به بالا</b>؛ کافی است گوشی روشن و پیامک‌گیر باشد.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="telegram">
-  <div class="wrap tgsec">
-    <div class="reveal">
-      <p class="label">تلگرام</p>
-      <h2>هر واریز، در گروه ادمین‌ها هم.</h2>
-      <p class="sub">وقتی شماره‌کارت مال یک نفر است و پاسخ‌گویی با بقیه، ادمین‌ها دیگر لازم نیست مدام از صاحب کارت بپرسند. یک مقصد را وبهوک بگذارید، یکی را تلگرام؛ یا هر چندتا که لازم است.</p>
-      <div class="facts">
-        <div><b>راه‌اندازی</b><span>توکن بات از ‎@BotFather و چت آیدی؛ چت آیدی را خود برنامه پیدا می‌کند.</span></div>
-        <div><b>متن پیام</b><span>دلخواه، با متغیرهایی مثل <code>{{amount_text}}</code>، <code>{{code}}</code> و <code>{{bank}}</code>.</span></div>
-        <div><b>قالب‌بندی</b><span><code>**پررنگ**</code>، <code>`تک‌فاصله`</code>، <code>&gt; نقل‌قول</code> و پیش‌نمایش زنده.</span></div>
-        <div><b>فیلترینگ</b><span>تا VPN وصل شود در صف می‌ماند؛ یا سرور Bot API خودتان را بدهید.</span></div>
-      </div>
-    </div>
-    <div class="chat reveal" aria-hidden="true">
-      <div class="chat-top"><span class="av"><i></i></span><span><b>گروه ادمین‌ها</b><small>ForApp Bot و ۳ عضو</small></span></div>
-      <div class="chat-body">
-        <div class="msg">
-          <div class="from">ForApp Bot</div>
-          <b>💰 واریز ۲٬۵۰۰٬۴۳۷ ریال</b><br>کد تطبیق: <code>437</code><br>ملت · ۱۴۰۵/۰۷/۱۸ ساعت ۱۴:۳۵
-          <blockquote>بانک ملت<br>واریز:2,500,437<br>مانده:15,200,000</blockquote>
-          <span class="t">14:35</span>
-        </div>
-        <div class="msg">
-          <div class="from">ForApp Bot</div>
-          <b>💰 واریز ۸۹۰٬۱۲۸ تومان</b><br>کد تطبیق: <code>128</code><br>سامان · ۱۴۰۵/۰۷/۱۸ ساعت ۱۴:۵۱
-          <blockquote>واریز به حساب<br>مبلغ: 890,128 تومان</blockquote>
-          <span class="t">14:51</span>
-        </div>
-      </div>
+    <div class="tiles">
+      <div class="tile reveal"><b>اینترنت فیلترشده</b><span>تا VPN وصل شود صبر می‌کند</span></div>
+      <div class="tile reveal"><b>بدون سرور واسطه</b><span>همه‌چیز روی گوشی شما</span></div>
+      <div class="tile reveal"><b>ضد واریز جعلی</b><span>فقط شماره‌ی واقعی بانک</span></div>
+      <div class="tile reveal"><b>بیش از ۳۰ بانک</b><span>فقط همان‌هایی که می‌خواهید</span></div>
+      <div class="tile reveal"><b>گزارش کامل</b><span>هر واریز و «ارسال الان»</span></div>
+      <div class="tile reveal"><b>پشتیبان تنظیمات</b><span>یک فایل، برای گوشی تازه</span></div>
     </div>
   </div>
 </section>
 
 <section id="how">
   <div class="wrap">
-    <div class="reveal">
-      <p class="label">راه‌اندازی</p>
-      <h2>در سه قدم آماده است.</h2>
-    </div>
     <div class="steps">
-      <div class="step reveal"><div class="big">۱</div><h3>نصب و اجازه‌ها</h3><p>APK را نصب کنید و قدم‌ها را بروید: اجازه‌ی پیامک، باتری، بانک‌ها و مقصد.</p></div>
-      <div class="step reveal"><div class="big">۲</div><h3>وبهوک یا تلگرام</h3><p>آدرس و کلید وبهوک را بدهید، یا توکن بات تلگرام و چت آیدی؛ چت آیدی را خود برنامه پیدا می‌کند.</p></div>
-      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>با «ارسال آزمایشی» مطمئن شوید پیام به مقصد می‌رسد. تمام.</p></div>
+      <div class="step reveal"><div class="big">۱</div><h3>نصب روی گوشی صاحب کارت</h3><p>اجازه‌ی پیامک و بانک‌ها.</p></div>
+      <div class="step reveal"><div class="big">۲</div><h3>افزودن مقصد</h3><p>وبهوک، تلگرام، یا هر دو.</p></div>
+      <div class="step reveal"><div class="big r">۳</div><h3>ارسال آزمایشی</h3><p>ببینید می‌رسد. تمام.</p></div>
     </div>
-  </div>
-</section>
-
-<section id="request">
-  <div class="wrap req">
-    <div class="reveal">
-      <p class="label">برای برنامه‌نویس‌ها</p>
-      <h2>یک درخواست تمیز، هر بار.</h2>
-      <p class="sub">همه‌چیز برای هر مقصد قابل تغییر است. پاسخ وبهوک شما تعیین می‌کند که دوباره تلاش شود یا نه.</p>
-      <div class="codes">
-        <div><span>رسید</span><span class="mono">2xx</span></div>
-        <div><span>دوباره تلاش</span><span class="mono">408 · 425 · 429 · 5xx</span></div>
-        <div><span>ناموفق</span><span class="mono r">4xx</span></div>
-      </div>
-    </div>
-    <pre class="reveal"><span class="k">POST</span> https://your.site/webhook
-<span class="k">X-API-Key:</span> <span class="s">••••••••</span>
-<span class="k">Idempotency-Key:</span> <span class="s">7f3c…a91</span>
-
-{
-  <span class="s">"bank"</span>: <span class="s">"mellat"</span>,
-  <span class="s">"amount"</span>: 2500<span class="r">437</span>,
-  <span class="s">"code"</span>: <span class="r">"437"</span>,
-  <span class="s">"unit"</span>: <span class="s">"rial"</span>,
-  <span class="s">"is_deposit"</span>: true,
-  <span class="s">"received_at"</span>: <span class="s">"2026-10-10T12:40:07+03:30"</span>,
-  <span class="s">"attempt"</span>: 1   <span class="c">// …</span>
-}</pre>
   </div>
 </section>
 
 <section id="faq">
   <div class="wrap faq">
-    <div class="reveal">
-      <p class="label">سؤال‌های رایج</p>
-      <h2>قبل از نصب.</h2>
-    </div>
+    <div class="reveal"><p class="label">سؤال‌های رایج</p><h2>قبل از نصب.</h2></div>
     <div class="qs reveal">
-      <details open><summary>روی کدام گوشی نصب کنم؟</summary><p>گوشی‌ای که پیامک‌های بانکِ کارت به آن می‌رسد؛ معمولاً گوشی صاحب کارت. این گوشی باید روشن و به اینترنت وصل باشد.</p></details>
-      <details><summary>پیامک‌ها به سرور شما هم می‌رود؟</summary><p>نه. فوراپ سرور ندارد. پیامک مستقیم از گوشی به وبهوک یا تلگرامی می‌رود که خودتان تعیین کرده‌اید.</p></details>
-      <details><summary>سرور یا ربات ندارم. باز هم به کارم می‌آید؟</summary><p>بله. فقط مقصد تلگرام بگذارید تا هر واریز همان لحظه در گروه ادمین‌ها بیاید.</p></details>
-      <details><summary>اگر اینترنت قطع شود یا VPN خاموش باشد؟</summary><p>واریز در صف می‌ماند و به محض وصل شدن فرستاده می‌شود. تلاش‌ها هدر نمی‌روند.</p></details>
-      <details><summary>پیامک‌های دیگرم چه می‌شوند؟</summary><p>خوانده نمی‌شوند. فقط پیامک شماره‌هایی که برای بانک‌ها انتخاب کرده‌اید بررسی می‌شود و برداشت و رمز یکبار مصرف ارسال نمی‌شوند.</p></details>
+      <details open><summary>روی کدام گوشی نصب کنم؟</summary><p>گوشی‌ای که پیامک بانکِ کارت را می‌گیرد. باید روشن و به اینترنت وصل باشد.</p></details>
+      <details><summary>پیامک‌ها به سرور شما هم می‌رود؟</summary><p>نه. فوراپ سرور ندارد؛ فقط به مقصدهایی که خودتان تعیین کرده‌اید می‌فرستد.</p></details>
+      <details><summary>سرور یا ربات ندارم.</summary><p>فقط مقصد تلگرام بگذارید؛ هر واریز در گروه ادمین‌ها می‌آید.</p></details>
+      <details><summary>اینترنت قطع شد؟</summary><p>واریز در صف می‌ماند و با وصل شدن فرستاده می‌شود.</p></details>
     </div>
   </div>
 </section>
@@ -486,12 +463,6 @@ footer a { color: var(--fg); font-weight: 700; }
   </div>
 </section>
 
-<footer>
-  <div class="wrap">
-    <span>فوراپ · متن‌باز روی <a href="https://github.com/erfjab/forapp">گیت‌هاب</a></span>
-    <span>فونت وزیرمتن تحت مجوز OFL</span>
-  </div>
-</footer>
 
 <script>
 var fa = function (n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); };
@@ -511,6 +482,9 @@ if ('IntersectionObserver' in window) {
   }, { threshold: .12 });
   document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
 } else document.documentElement.classList.add('no-io');
+document.querySelectorAll('[data-dest] .sw').forEach(function (b) {
+  b.addEventListener('click', function () { b.classList.toggle('on'); b.closest('[data-dest]').classList.toggle('off', !b.classList.contains('on')); });
+});
 </script>
 <script type="importmap">
 { "imports": {
