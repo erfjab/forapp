@@ -7,8 +7,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** All app state lives in one small SQLite file. No ORM, no extra library. */
@@ -26,7 +28,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "forapp.db", null, 2);
+        super(c, "forapp.db", null, 3);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -45,13 +47,7 @@ public final class Db extends SQLiteOpenHelper {
                 + " status INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL DEFAULT 0,"
                 + " code INTEGER, error TEXT, updated_at INTEGER NOT NULL DEFAULT 0, UNIQUE(msg_id, dest_id))");
         db.execSQL("CREATE INDEX dels_due ON dels(status, next_at)");
-        String[] seed = {"ملت", "ملی", "صادرات", "تجارت", "سپه", "پاسارگاد", "سامان", "پارسیان", "رسالت", "بلوبانک",
-                "مسکن", "کشاورزی", "رفاه", "اقتصاد نوین", "شهر", "آینده"};
-        for (String n : seed) {
-            ContentValues v = new ContentValues();
-            v.put("name", n);
-            db.insert("banks", null, v);
-        }
+        addMissingBanks(db, 0);
     }
 
     @Override
@@ -59,6 +55,29 @@ public final class Db extends SQLiteOpenHelper {
         if (oldV < 2) {
             // v2: each destination can shape its own request; NULL keeps the original JSON-by-POST.
             for (String col : new String[]{"method", "headers", "body_type", "body_tpl"}) db.execSQL("ALTER TABLE dests ADD COLUMN " + col + " TEXT");
+        }
+        if (oldV < 3) addMissingBanks(db, FIRST_V3_BANK); // v3: the rest of Iran's banks; ones the user deleted stay deleted
+    }
+
+    /** Iranian banks offered out of the box; the user adds each one's SMS sender. Banks merged into Sepah are left out. */
+    static final String[] BANKS = {"ملت", "ملی", "صادرات", "تجارت", "سپه", "پاسارگاد", "سامان", "پارسیان", "رسالت", "بلوبانک",
+            "مسکن", "کشاورزی", "رفاه", "اقتصاد نوین", "شهر", "آینده",
+            "کارآفرین", "سینا", "سرمایه", "خاورمیانه", "دی", "گردشگری", "ایران زمین", "پست بانک", "صنعت و معدن",
+            "توسعه صادرات", "توسعه تعاون", "مهر ایران", "ایران و ونزوئلا", "اعتباری ملل", "اعتباری نور"};
+    private static final int FIRST_V3_BANK = 16;
+
+    /** Adds the banks of {@link #BANKS} that are not in the list yet (matched by name), leaving the user's own edits alone. */
+    private static void addMissingBanks(SQLiteDatabase db, int from) {
+        Set<String> have = new HashSet<>();
+        try (Cursor c = db.rawQuery("SELECT name FROM banks", null)) {
+            while (c.moveToNext()) have.add(SmsParser.normalize(c.getString(0)).trim());
+        }
+        for (int i = from; i < BANKS.length; i++) {
+            String n = BANKS[i];
+            if (have.contains(SmsParser.normalize(n))) continue;
+            ContentValues v = new ContentValues();
+            v.put("name", n);
+            db.insert("banks", null, v);
         }
     }
 
@@ -145,6 +164,42 @@ public final class Db extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.delete("banks", "id=?", args(id));
         db.delete("dest_banks", "bank_id=?", args(id));
+    }
+
+    /**
+     * Replaces banks and destinations with an imported set, in one transaction. Rows are matched by name and updated
+     * in place, so the log keeps pointing at the same bank and destination; anything not in the import is removed.
+     * {@code destBanks} holds, for each destination, the names of the banks it takes.
+     */
+    public void replaceSettings(List<Bank> banks, List<Dest> dests, List<Set<String>> destBanks) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            Map<String, Long> oldBanks = new HashMap<>();
+            for (Bank b : banks()) oldBanks.putIfAbsent(b.name, b.id);
+            Map<String, Long> bankIds = new HashMap<>();
+            for (Bank b : banks) {
+                Long id = oldBanks.remove(b.name);
+                b.id = id == null ? 0 : id;
+                bankIds.put(b.name, saveBank(b));
+            }
+            for (long id : oldBanks.values()) deleteBank(id);
+
+            Map<String, Long> oldDests = new HashMap<>();
+            for (Dest d : dests()) oldDests.putIfAbsent(d.name, d.id);
+            for (int i = 0; i < dests.size(); i++) {
+                Dest d = dests.get(i);
+                Long id = oldDests.remove(d.name);
+                d.id = id == null ? 0 : id;
+                Set<Long> ids = new HashSet<>();
+                for (String n : destBanks.get(i)) if (bankIds.containsKey(n)) ids.add(bankIds.get(n));
+                saveDest(d, ids);
+            }
+            for (long id : oldDests.values()) deleteDest(id);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     public Bank bankForSender(String sender) {

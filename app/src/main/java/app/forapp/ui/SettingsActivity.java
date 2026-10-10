@@ -15,9 +15,15 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 import app.forapp.R;
+import app.forapp.core.Backup;
 import app.forapp.core.Db;
 import app.forapp.core.Fa;
 import app.forapp.core.Forwarder;
@@ -106,6 +112,10 @@ public final class SettingsActivity extends BaseActivity {
                     Ui.toast(this, "لاگ پاک شد");
                 }));
 
+        add(Ui.section(this, "پشتیبان تنظیمات"));
+        link("خروجی گرفتن", "", R.color.mid, "بانک‌ها، مقصدها و تنظیمات در یک فایل؛ بدون لاگ. کلیدهای API هم در فایل هست.", this::exportSettings);
+        link("وارد کردن از فایل", "", R.color.mid, "تنظیمات فعلی با فایل جایگزین می‌شود؛ لاگ دست نمی‌خورد", this::importSettings);
+
         add(Ui.section(this, "ویجت"));
         link("افزودن ویجت جمع‌وجور", "۲×۱", R.color.mid, "تعداد و مبلغ واریزهای امروز", () -> pinWidget(Widget.class));
         link("افزودن ویجت نوار", "۴×۱", R.color.mid, "واریزها، مبلغ و ناموفق‌ها در یک نوار", () -> pinWidget(Widget.Strip.class));
@@ -160,6 +170,66 @@ public final class SettingsActivity extends BaseActivity {
                 android.app.PendingIntent.getBroadcast(this, provider == Widget.class ? 1 : 2, new Intent(this, Widget.Pinned.class),
                         android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_MUTABLE))) {
             Ui.toast(this, "این لانچر افزودن مستقیم را پشتیبانی نمی‌کند؛ از منوی ویجت‌های صفحه‌ی اصلی اضافه کنید");
+        }
+    }
+
+    // ---------- settings backup ----------
+
+    private static final int REQ_EXPORT = 11, REQ_IMPORT = 12;
+
+    /** The system file picker chooses where to save, so no storage permission is needed. */
+    private void exportSettings() {
+        String day = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date());
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, "forapp-settings-" + day + ".json");
+        startActivityForResult(i, REQ_EXPORT);
+    }
+
+    private void importSettings() {
+        // Any type: many file managers do not label .json files as JSON.
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        startActivityForResult(i, REQ_IMPORT);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (res != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        if (req == REQ_EXPORT) {
+            new Thread(() -> {
+                try (OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
+                    out.write(Backup.export(this).getBytes(StandardCharsets.UTF_8));
+                    runOnUiThread(() -> Ui.toast(this, "تنظیمات ذخیره شد"));
+                } catch (Exception e) {
+                    runOnUiThread(() -> Ui.toast(this, "ذخیره نشد: " + e.getMessage()));
+                }
+            }, "forapp-export").start();
+        } else if (req == REQ_IMPORT) {
+            new Thread(() -> {
+                Backup.Data d;
+                try (InputStream in = getContentResolver().openInputStream(uri)) {
+                    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                    byte[] b = new byte[8192];
+                    for (int n; (n = in.read(b)) > 0; ) {
+                        buf.write(b, 0, n);
+                        if (buf.size() > 1_000_000) throw new Exception("این فایل تنظیمات فوراپ نیست");
+                    }
+                    d = Backup.read(buf.toString("UTF-8").replace("﻿", ""));
+                } catch (Exception e) {
+                    runOnUiThread(() -> Ui.toast(this, e.getMessage()));
+                    return;
+                }
+                runOnUiThread(() -> Ui.confirm(this, "وارد کردن تنظیمات",
+                        Fa.d(d.banks.size()) + " بانک و " + Fa.d(d.dests.size()) + " مقصد در فایل هست. بانک‌ها، مقصدها و تنظیمات فعلی با این‌ها جایگزین می‌شوند. لاگ دست نمی‌خورد.",
+                        "جایگزین کن", () -> new Thread(() -> {
+                            Backup.apply(this, d);
+                            runOnUiThread(() -> {
+                                Ui.toast(this, "تنظیمات وارد شد");
+                                build();
+                            });
+                        }, "forapp-import").start()));
+            }, "forapp-import").start();
         }
     }
 
