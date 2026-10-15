@@ -8,6 +8,7 @@ import android.content.Intent;
 public final class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        Trace.i("APP", "system event: " + intent.getAction());
         Forwarder.schedule(context.getApplicationContext());
     }
 }

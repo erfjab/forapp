@@ -167,6 +167,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     public long saveBank(Bank b) {
+        Trace.i("SETTINGS", "bank " + (b.id == 0 ? "added" : "saved") + ": " + b.name + " · senders: " + b.senders);
         ContentValues v = new ContentValues();
         v.put("name", b.name);
         v.put("senders", b.senders);
@@ -176,6 +177,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     public void deleteBank(long id) {
+        Trace.i("SETTINGS", "bank " + id + " deleted");
         SQLiteDatabase db = getWritableDatabase();
         db.delete("banks", "id=?", args(id));
         db.delete("dest_banks", "bank_id=?", args(id));
@@ -270,6 +272,8 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     public long saveDest(Dest d, Set<Long> bankIds) {
+        Trace.i("SETTINGS", "destination " + (d.id == 0 ? "added" : "saved") + ": " + d.name + " · " + Trace.host(d.url)
+                + (d.enabled ? "" : " (off)") + (d.allBanks ? " · all banks" : " · banks " + bankIds));
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -303,12 +307,14 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     public void setDestEnabled(long id, boolean on) {
+        Trace.i("SETTINGS", "destination " + id + " turned " + (on ? "on" : "off"));
         ContentValues v = new ContentValues();
         v.put("enabled", on ? 1 : 0);
         getWritableDatabase().update("dests", v, "id=?", args(id));
     }
 
     public void deleteDest(long id) {
+        Trace.i("SETTINGS", "destination " + id + " deleted; its waiting deliveries dropped");
         SQLiteDatabase db = getWritableDatabase();
         db.delete("dests", "id=?", args(id));
         db.delete("dest_banks", "dest_id=?", args(id));
@@ -380,6 +386,7 @@ public final class Db extends SQLiteOpenHelper {
 
     /** Sends a skipped SMS by hand, or re-sends failed deliveries of a message. */
     public void resend(Msg m) {
+        Trace.i("SEND", "message #" + m.id + (m.skipped ? ": skipped SMS sent by hand" : ": failed deliveries queued again by hand"));
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {

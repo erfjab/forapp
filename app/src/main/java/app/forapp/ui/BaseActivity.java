@@ -17,6 +17,7 @@ import android.widget.TextView;
 import java.util.Locale;
 
 import app.forapp.R;
+import app.forapp.core.Trace;
 
 /** Right-to-left, edge-to-edge screens with the shared header. */
 abstract class BaseActivity extends Activity {
@@ -28,6 +29,18 @@ abstract class BaseActivity extends Activity {
         Configuration c = new Configuration(base.getResources().getConfiguration());
         c.setLocale(new Locale("fa"));
         super.attachBaseContext(base.createConfigurationContext(c));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Trace.i("UI", getClass().getSimpleName() + " opened");
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Trace.i("UI", getClass().getSimpleName() + " left");
     }
 
     @Override

@@ -23,6 +23,7 @@ import app.forapp.R;
 import app.forapp.core.Db;
 import app.forapp.core.Fa;
 import app.forapp.core.Forwarder;
+import app.forapp.core.Prefs;
 import app.forapp.core.SmsParser;
 
 /**
@@ -58,6 +59,7 @@ public final class BanksActivity extends BaseActivity {
         intro.setLineSpacing(0, 1.3f);
         Ui.pad(intro, 20, 16, 20, 16);
         list.addView(intro);
+        addUnknownSenders();
         for (Db.Bank bk : Db.get(this).banks()) {
             List<String> senders = bk.senderList();
             LinearLayout r = Ui.row(this, bk.name, senders.isEmpty() ? "فرستنده تنظیم نشده" : Fa.d(String.join("، ", senders)),
@@ -73,6 +75,57 @@ public final class BanksActivity extends BaseActivity {
         list.addView(Ui.hairline(this, R.color.line));
         View space = new View(this);
         list.addView(space, new LinearLayout.LayoutParams(1, Ui.dp(this, 32)));
+    }
+
+    /** Senders that sent an amount but belong to no bank: often a bank's second number, the usual cause of a missing SMS. */
+    private void addUnknownSenders() {
+        Prefs p = Prefs.of(this);
+        Db db = Db.get(this);
+        List<String[]> unknown = new ArrayList<>();
+        for (String[] e : p.unknownSenders()) {
+            if (db.bankForSender(e[0]) == null) unknown.add(e);
+            else p.forgetUnknownSender(e[0]); // added to a bank since
+        }
+        if (unknown.isEmpty()) return;
+        list.addView(Ui.section(this, "فرستنده‌های ناشناس اخیر"));
+        TextView note = Ui.text(this, "این شماره‌ها پیامکی با مبلغ فرستاده‌اند ولی جزو هیچ بانکی نیستند، پس پیامکشان خوانده نشد."
+                + " اگر مال بانک شماست، لمس کنید و به آن بانک اضافه کنید.", 12.5f, R.color.mid, Ui.W_REGULAR);
+        note.setLineSpacing(0, 1.3f);
+        Ui.pad(note, 20, 0, 20, 10);
+        list.addView(note);
+        long now = System.currentTimeMillis();
+        for (String[] e : unknown) {
+            String addr = e[0];
+            LinearLayout r = Ui.row(this, addr, "آخرین پیامک " + Fa.ago(Long.parseLong(e[1]), now), Ui.value(this, "", R.color.mid));
+            Ui.ltr((TextView) ((LinearLayout) r.getChildAt(0)).getChildAt(0));
+            Ui.ripple(r, false);
+            r.setOnClickListener(v -> addToBank(addr));
+            list.addView(Ui.hairline(this, R.color.line));
+            list.addView(r);
+        }
+        list.addView(Ui.hairline(this, R.color.line));
+        list.addView(Ui.section(this, "بانک‌ها"));
+    }
+
+    private void addToBank(String addr) {
+        List<Db.Bank> banks = Db.get(this).banks();
+        String[] names = new String[banks.size()];
+        for (int i = 0; i < names.length; i++) names[i] = banks.get(i).name;
+        new AlertDialog.Builder(this).setTitle("«" + addr + "» مال کدام بانک است؟")
+                .setItems(names, (d, w) -> {
+                    Db.Bank bk = banks.get(w);
+                    bk.senders = bk.senders.trim().isEmpty() ? Fa.ascii(addr) : bk.senders + "," + Fa.ascii(addr);
+                    Db.get(this).saveBank(bk);
+                    Prefs.of(this).forgetUnknownSender(addr);
+                    Forwarder.changed();
+                    Ui.toast(this, "به " + bk.name + " اضافه شد");
+                    build();
+                })
+                .setNeutralButton("نادیده بگیر", (d, w) -> {
+                    Prefs.of(this).forgetUnknownSender(addr);
+                    build();
+                })
+                .setNegativeButton("انصراف", null).show();
     }
 
     private void edit(Db.Bank bk) {

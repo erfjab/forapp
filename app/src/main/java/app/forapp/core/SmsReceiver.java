@@ -16,7 +16,8 @@ import java.util.UUID;
 
 /**
  * Wakes up only when an SMS arrives; there is no service running in the background.
- * SMS from senders that are not set up as a bank are ignored and never stored.
+ * SMS from senders that are not set up as a bank are ignored and never stored; only the sender of one
+ * that mentions an amount is remembered, so a bank's new number can be added.
  */
 public final class SmsReceiver extends BroadcastReceiver {
 
@@ -25,11 +26,21 @@ public final class SmsReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        if (!Telephony.Sms.Intents.SMS_RECEIVED_ACTION.equals(intent.getAction())) return;
+        if (!Telephony.Sms.Intents.SMS_RECEIVED_ACTION.equals(intent.getAction())) {
+            Trace.i("SMS", "broadcast ignored: " + intent.getAction());
+            return;
+        }
         Context c = context.getApplicationContext();
-        if (!Prefs.of(c).enabled()) return;
         SmsMessage[] parts = Telephony.Sms.Intents.getMessagesFromIntent(intent);
-        if (parts == null || parts.length == 0) return;
+        int n = parts == null ? 0 : parts.length;
+        if (!Prefs.of(c).enabled()) {
+            Trace.i("SMS", "SMS broadcast with " + n + " part(s), not read: forwarding is off");
+            return;
+        }
+        if (n == 0) {
+            Trace.i("SMS", "SMS broadcast with no readable parts");
+            return;
+        }
 
         // A long SMS arrives in parts; join them per sender.
         Map<String, StringBuilder> bodies = new LinkedHashMap<>();
@@ -46,6 +57,10 @@ public final class SmsReceiver extends BroadcastReceiver {
             String t = p.getDisplayMessageBody();
             if (t != null) b.append(t);
         }
+        long now = System.currentTimeMillis();
+        for (Map.Entry<String, Long> e : times.entrySet())
+            Trace.i("SMS", "received from " + e.getKey() + " · " + n + " part(s) · " + bodies.get(e.getKey()).length()
+                    + " chars · sent " + (now - e.getValue()) / 1000 + "s ago by the network's clock");
 
         PendingResult pending = goAsync();
         new Thread(() -> {
@@ -56,11 +71,13 @@ public final class SmsReceiver extends BroadcastReceiver {
                     if (id > 0) ids.add(id);
                 }
                 if (!ids.isEmpty()) Forwarder.sendNow(c, ids, SEND_BUDGET_MS);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // Never crash inside the SMS broadcast; the job retries anything that was stored.
+                Trace.e("SMS", "handling failed; the background job will retry what was stored", e);
                 Forwarder.schedule(c);
             } finally {
                 pending.finish();
+                Trace.i("SMS", "done with broadcast after " + (System.currentTimeMillis() - now) + "ms");
             }
         }, "forapp-sms").start();
     }
@@ -69,8 +86,19 @@ public final class SmsReceiver extends BroadcastReceiver {
     static long store(Context c, String sender, String body, long sentAt) {
         Db db = Db.get(c);
         Db.Bank bank = db.bankForSender(sender);
-        if (bank == null) return -1;
         SmsParser.Result p = SmsParser.parse(body);
+        if (bank == null) {
+            Trace.i("SMS", "from " + sender + ": not a bank sender, ignored (canonical \"" + SmsParser.canonicalSender(sender)
+                    + "\") · amount found " + (p.amount != null));
+            // Not stored, but if it mentions an amount it may be a bank's new number: show the sender on the banks screen.
+            if (p.amount != null) {
+                Prefs.of(c).noteUnknownSender(sender, System.currentTimeMillis());
+                Forwarder.changed();
+            }
+            return -1;
+        }
+        Trace.i("SMS", "from " + sender + ": bank " + bank.name + " · parsed amount " + p.amount + " " + p.unit
+                + " · " + (p.deposit == null ? "deposit/withdrawal unclear" : p.deposit ? "deposit" : "withdrawal") + "\ntext: " + body);
         Db.Msg m = new Db.Msg();
         m.uid = UUID.randomUUID().toString();
         m.fp = fingerprint(sender, body, sentAt);
@@ -83,7 +111,11 @@ public final class SmsReceiver extends BroadcastReceiver {
         m.deposit = p.deposit;
         m.at = System.currentTimeMillis();
         m.skipped = Prefs.of(c).depositOnly() && !Boolean.TRUE.equals(p.deposit);
-        long id = db.insertMessage(m, db.destsForBank(bank.id));
+        List<Db.Dest> to = db.destsForBank(bank.id);
+        long id = db.insertMessage(m, to);
+        if (id < 0) Trace.i("SMS", "already stored (same sender, time and text), not stored again");
+        else if (m.skipped) Trace.i("SMS", "stored as #" + id + ", not sent: not a deposit and \"deposits only\" is on");
+        else Trace.i("SMS", "stored as #" + id + " · " + to.size() + " destination(s)" + (to.isEmpty() ? ", so nothing to send" : ""));
         if (id > 0 && m.skipped) Forwarder.changed();
         return m.skipped ? -1 : id;
     }

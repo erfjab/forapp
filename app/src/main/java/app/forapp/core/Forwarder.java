@@ -85,6 +85,7 @@ public final class Forwarder {
     public static void sendNow(Context c, List<Long> msgIds, long budgetMs) {
         Db db = Db.get(c);
         List<Db.Delivery> due = db.claimDue(System.currentTimeMillis(), 20, msgIds);
+        Trace.i("SEND", "sending right away: " + due.size() + " delivery(ies) for message(s) " + msgIds + " · online " + online(c));
         if (!due.isEmpty()) {
             CountDownLatch done = new CountDownLatch(due.size());
             for (Db.Delivery d : due) {
@@ -92,7 +93,10 @@ public final class Forwarder {
                     try { deliver(c, d); } finally { done.countDown(); }
                 }, "forapp-send").start();
             }
-            try { done.await(budgetMs, TimeUnit.MILLISECONDS); } catch (InterruptedException ignored) {}
+            try {
+                if (!done.await(budgetMs, TimeUnit.MILLISECONDS))
+                    Trace.i("SEND", done.getCount() + " send(s) still running after " + budgetMs + "ms; leaving them to finish or to the job");
+            } catch (InterruptedException ignored) {}
         }
         schedule(c);
         changed();
@@ -101,13 +105,19 @@ public final class Forwarder {
     /** Reliable path, run by {@link SendJob}: drain everything that is due. */
     public static void sendDue(Context c, long deadline) {
         Db db = Db.get(c);
+        int sent = 0;
         while (System.currentTimeMillis() < deadline) {
             List<Db.Delivery> due = db.claimDue(System.currentTimeMillis(), 10, null);
             if (due.isEmpty()) break;
             for (Db.Delivery d : due) deliver(c, d);
+            sent += due.size();
             changed();
-            if (!online(c)) break;
+            if (!online(c)) {
+                Trace.i("SEND", "offline; stopping until the network is back");
+                break;
+            }
         }
+        Trace.i("SEND", "queue run done: " + sent + " delivery(ies) tried");
         cleanup(c);
         schedule(c);
         changed();
@@ -119,21 +129,31 @@ public final class Forwarder {
         Db.Dest dest = db.dest(d.destId);
         Db.Msg m = db.message(d.msgId);
         if (dest == null || m == null) {
+            Trace.i("SEND", "delivery " + d.id + ": " + (dest == null ? "destination" : "message") + " was deleted; marked failed");
             db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, "مقصد حذف شده");
             return;
         }
-        Result r = post(request(dest, m, d.attempts + 1, false), prefs.timeoutSec());
+        Request q = request(dest, m, d.attempts + 1, false);
+        Result r = post(q, prefs.timeoutSec());
         if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
         long now = System.currentTimeMillis();
+        String what = "message #" + m.id + " → " + dest.name + " (" + q.method + " " + Trace.host(q.url) + ") try " + (d.attempts + 1)
+                + ": " + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code : "no answer") + " in " + r.ms + "ms";
         if (r.ok()) {
+            Trace.i("SEND", what);
             db.finishDelivery(d.id, Db.SENT, d.attempts + 1, now, r.code, null);
         } else if (r.code == 0) {
             // No answer at all: no internet, VPN off or the address is filtered. That is not the server's fault,
             // so no attempt is used up; retry every minute, and right away when the network changes (watchNetwork).
-            db.finishDelivery(d.id, Db.PENDING, d.attempts, online(c) ? now + UNREACHABLE_RETRY_MS : now, null, reason(c, r));
+            boolean on = online(c);
+            Trace.i("SEND", what + " · " + r.error + " · online " + on + " · retry " + (on ? "in 1 min" : "when the network is back")
+                    + ", attempt not counted");
+            db.finishDelivery(d.id, Db.PENDING, d.attempts, on ? now + UNREACHABLE_RETRY_MS : now, null, reason(c, r));
         } else if (r.retryable() && d.attempts + 1 < prefs.maxAttempts()) {
+            Trace.i("SEND", what + " · " + r.error + " · retry in " + backoffMs(d.attempts + 1) / 1000 + "s");
             db.finishDelivery(d.id, Db.PENDING, d.attempts + 1, now + backoffMs(d.attempts + 1), r.code > 0 ? r.code : null, r.error);
         } else {
+            Trace.i("SEND", what + " · " + r.error + " · GAVE UP" + (r.retryable() ? " after " + (d.attempts + 1) + " tries" : ", not retryable"));
             db.finishDelivery(d.id, Db.FAILED, d.attempts + 1, now, r.code > 0 ? r.code : null, r.error);
             notifyFailure(c, dest, m, r);
         }
@@ -165,6 +185,8 @@ public final class Forwarder {
             db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, r.error);
         } else {
             r = post(request(dest, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
+            Trace.i("SEND", "manual send of message #" + m.id + " → " + dest.name + ": "
+                    + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms");
             if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
             if (r.ok()) db.finishDelivery(d.id, Db.SENT, d.attempts + 1, System.currentTimeMillis(), r.code, null);
             else db.finishDelivery(d.id, d.status == Db.SENDING ? Db.PENDING : d.status, d.attempts, d.nextAt,
@@ -185,11 +207,18 @@ public final class Forwarder {
             @Override
             public void onAvailable(Network n) {
                 new Thread(() -> {
-                    if (Db.get(app).wakeUnreachable(System.currentTimeMillis()) > 0) {
+                    int woken = Db.get(app).wakeUnreachable(System.currentTimeMillis());
+                    Trace.i("NET", "network available" + (woken > 0 ? "; " + woken + " unreachable delivery(ies) due now" : ""));
+                    if (woken > 0) {
                         schedule(app);
                         changed();
                     }
                 }, "forapp-net").start();
+            }
+
+            @Override
+            public void onLost(Network n) {
+                Trace.i("NET", "network lost");
             }
         });
     }
@@ -246,6 +275,8 @@ public final class Forwarder {
     /** Sends a clearly marked test payload; used by the "ارسال آزمایشی" buttons. */
     public static Result test(Context c, Db.Dest d) {
         Result r = post(request(d, Request.sample(true), 1, true), Prefs.of(c).timeoutSec());
+        Trace.i("SEND", "test send → " + d.name + " (" + Trace.host(d.url) + "): "
+                + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms");
         if (d.id > 0 && r.code > 0) Db.get(c).setDestLast(d.id, r.code, r.ms);
         return r;
     }
@@ -287,6 +318,7 @@ public final class Forwarder {
         if (js == null) return;
         long next = Db.get(c).nextDueAt();
         if (next < 0) {
+            if (js.getPendingJob(JOB_ID) != null) Trace.i("JOB", "queue empty; background job cancelled");
             js.cancel(JOB_ID);
             return;
         }
@@ -298,6 +330,7 @@ public final class Forwarder {
         try {
             if (delay == 0 && Build.VERSION.SDK_INT >= 31) b.setExpedited(true);
             js.schedule(b.build());
+            Trace.i("JOB", "background job scheduled in " + delay / 1000 + "s (needs internet)" + (delay == 0 && Build.VERSION.SDK_INT >= 31 ? ", expedited" : ""));
         } catch (Exception e) {
             // Expedited quota used up: fall back to a regular job.
             b = new JobInfo.Builder(JOB_ID, new ComponentName(c, SendJob.class))
@@ -305,6 +338,7 @@ public final class Forwarder {
                     .setPersisted(true);
             if (delay > 0) b.setMinimumLatency(delay);
             js.schedule(b.build());
+            Trace.i("JOB", "background job scheduled in " + delay / 1000 + "s (expedited refused: " + e.getMessage() + ")");
         }
     }
 
@@ -315,6 +349,7 @@ public final class Forwarder {
         if (now - p.lastCleanup() < 24 * 3600_000L) return;
         Db.get(c).deleteOlderThan(now - p.retentionDays() * 24 * 3600_000L);
         p.lastCleanup(now);
+        Trace.i("APP", "in-app log older than " + p.retentionDays() + " days removed");
     }
 
     // ---------- notifications ----------
@@ -329,7 +364,10 @@ public final class Forwarder {
 
     private static void notifyFailure(Context c, Db.Dest d, Db.Msg m, Result r) {
         if (Build.VERSION.SDK_INT >= 33
-                && c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+                && c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            Trace.i("SEND", "failure notification not shown: no notification permission");
+            return;
+        }
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         if (nm == null) return;
         Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());

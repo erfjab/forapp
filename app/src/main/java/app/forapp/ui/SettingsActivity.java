@@ -28,6 +28,7 @@ import app.forapp.core.Db;
 import app.forapp.core.Fa;
 import app.forapp.core.Forwarder;
 import app.forapp.core.Prefs;
+import app.forapp.core.Trace;
 import app.forapp.core.Updater;
 
 public final class SettingsActivity extends BaseActivity {
@@ -91,8 +92,11 @@ public final class SettingsActivity extends BaseActivity {
                 ds.isEmpty() ? R.color.red : R.color.mid, null, () -> startActivity(new Intent(this, DestinationsActivity.class)));
         int configured = 0;
         for (Db.Bank bk : db.banks()) if (!bk.senderList().isEmpty()) configured++;
+        int unknown = 0;
+        for (String[] e : p.unknownSenders()) if (db.bankForSender(e[0]) == null) unknown++;
         link("بانک‌ها و فرستنده‌ها", configured == 0 ? "تنظیم نشده" : Fa.d(configured) + " بانک",
-                configured == 0 ? R.color.red : R.color.mid, "فقط پیامک این فرستنده‌ها خوانده می‌شود",
+                configured == 0 ? R.color.red : R.color.mid,
+                unknown > 0 ? Fa.d(unknown) + " فرستنده‌ی ناشناس پیامک با مبلغ فرستاده؛ برای بررسی باز کنید" : "فقط پیامک این فرستنده‌ها خوانده می‌شود",
                 () -> startActivity(new Intent(this, BanksActivity.class)));
         Switch dep = Ui.toggle(this, p.depositOnly());
         dep.setOnCheckedChangeListener((v, c) -> p.depositOnly(c));
@@ -111,6 +115,8 @@ public final class SettingsActivity extends BaseActivity {
                     Forwarder.changed();
                     Ui.toast(this, "لاگ پاک شد");
                 }));
+        link("خروجی لاگ فنی", "", R.color.mid, "هر کاری که برنامه کرده و هر پیامکی که دیده، با زمان دقیق؛ ۷ روز آخر. برای بررسی مشکل.",
+                this::exportTrace);
 
         add(Ui.section(this, "پشتیبان تنظیمات"));
         link("خروجی گرفتن", "", R.color.mid, "بانک‌ها، مقصدها و تنظیمات در یک فایل؛ بدون لاگ. کلیدهای API هم در فایل هست.", this::exportSettings);
@@ -175,7 +181,14 @@ public final class SettingsActivity extends BaseActivity {
 
     // ---------- settings backup ----------
 
-    private static final int REQ_EXPORT = 11, REQ_IMPORT = 12;
+    private static final int REQ_EXPORT = 11, REQ_IMPORT = 12, REQ_TRACE = 13;
+
+    private void exportTrace() {
+        String stamp = new java.text.SimpleDateFormat("yyyy-MM-dd-HHmm", Locale.US).format(new java.util.Date());
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("text/plain").putExtra(Intent.EXTRA_TITLE, "forapp-trace-" + stamp + ".log");
+        startActivityForResult(i, REQ_TRACE);
+    }
 
     /** The system file picker chooses where to save, so no storage permission is needed. */
     private void exportSettings() {
@@ -196,7 +209,16 @@ public final class SettingsActivity extends BaseActivity {
         super.onActivityResult(req, res, data);
         if (res != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
-        if (req == REQ_EXPORT) {
+        if (req == REQ_TRACE) {
+            new Thread(() -> {
+                try (OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
+                    Trace.export(this, out);
+                    runOnUiThread(() -> Ui.toast(this, "لاگ فنی ذخیره شد"));
+                } catch (Exception e) {
+                    runOnUiThread(() -> Ui.toast(this, "ذخیره نشد: " + e.getMessage()));
+                }
+            }, "forapp-export").start();
+        } else if (req == REQ_EXPORT) {
             new Thread(() -> {
                 try (OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
                     out.write(Backup.export(this).getBytes(StandardCharsets.UTF_8));
