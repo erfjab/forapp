@@ -507,6 +507,14 @@ public final class Db extends SQLiteOpenHelper {
         return l;
     }
 
+    /** Whether an SMS with exactly this text was stored within {@code windowMs} of {@code at}. */
+    public boolean hasSameText(String body, long at, long windowMs) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT 1 FROM msgs WHERE body=? AND at BETWEEN ? AND ? LIMIT 1",
+                new String[]{body, String.valueOf(at - windowMs), String.valueOf(at + windowMs)})) {
+            return c.moveToFirst();
+        }
+    }
+
     public void finishDelivery(long id, int status, int attempts, long nextAt, Integer code, String error) {
         ContentValues v = new ContentValues();
         v.put("status", status);

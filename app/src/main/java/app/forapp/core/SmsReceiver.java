@@ -84,6 +84,11 @@ public final class SmsReceiver extends BroadcastReceiver {
 
     /** Stores one SMS with its deliveries. Returns the row id, or -1 when it is ignored or a duplicate. */
     static long store(Context c, String sender, String body, long sentAt) {
+        return store(c, sender, body, sentAt, System.currentTimeMillis());
+    }
+
+    /** Same, for an SMS found later in the inbox: {@code receivedAt} is when the phone actually got it. */
+    static long store(Context c, String sender, String body, long sentAt, long receivedAt) {
         Db db = Db.get(c);
         Db.Bank bank = db.bankForSender(sender);
         SmsParser.Result p = SmsParser.parse(body);
@@ -109,7 +114,7 @@ public final class SmsReceiver extends BroadcastReceiver {
         m.amount = p.amount;
         m.unit = p.unit;
         m.deposit = p.deposit;
-        m.at = System.currentTimeMillis();
+        m.at = receivedAt;
         m.skipped = Prefs.of(c).depositOnly() && !Boolean.TRUE.equals(p.deposit);
         List<Db.Dest> to = db.destsForBank(bank.id);
         long id = db.insertMessage(m, to);

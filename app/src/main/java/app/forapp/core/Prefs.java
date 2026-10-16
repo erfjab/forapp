@@ -50,6 +50,10 @@ public final class Prefs {
     public long lastCleanup() { return p.getLong("last_cleanup", 0); }
     public void lastCleanup(long v) { p.edit().putLong("last_cleanup", v).apply(); }
 
+    /** Inbox catch-up: SMS received up to this time (ms) were already looked at. 0 means never. */
+    public long inboxSeen() { return p.getLong("inbox_seen", 0); }
+    public void inboxSeen(long v) { p.edit().putLong("inbox_seen", v).apply(); }
+
     private static final int UNKNOWN_MAX = 8;
     private static final Object UNKNOWN_LOCK = new Object();
 

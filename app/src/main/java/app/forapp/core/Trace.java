@@ -55,6 +55,11 @@ public final class Trace {
 
     public static void i(String tag, String msg) { write(tag, msg); }
 
+    /** A wall-clock time in the log's own format. */
+    public static synchronized String time(long ms) { // same lock as write(): SimpleDateFormat is not thread-safe
+        return STAMP.format(new Date(ms));
+    }
+
     public static void e(String tag, String msg, Throwable t) {
         StringWriter s = new StringWriter();
         t.printStackTrace(new PrintWriter(s));
