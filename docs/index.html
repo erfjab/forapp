@@ -6,6 +6,7 @@
 <title>فوراپ | پیامک واریز، مستقیم به وبهوک و تلگرام</title>
 <meta name="description" content="فوراپ پیامک واریز بانک را روی گوشی اندروید می‌خواند و همان لحظه به وبهوک سرور شما یا گروه تلگرام می‌فرستد.">
 <meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="only light">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/vazir_black.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="fonts/vazir_bold.ttf" as="font" type="font/ttf" crossorigin>
@@ -15,10 +16,10 @@
 @font-face { font-family: Vazir; src: url(fonts/vazir_black.ttf) format("truetype"); font-weight: 900; font-display: swap; }
 
 /* The app's palette (app/src/main/res/values/colors.xml) */
-:root { --bg: #FFFFFF; --fg: #111111; --mid: #6B6B6B; --faint: #ECECEC; --line: #F2F2F2; --red: #E4002B; --redbg: #FFF0F2; }
+:root { color-scheme: only light; --bg: #FFFFFF; --fg: #111111; --mid: #6B6B6B; --faint: #ECECEC; --line: #F2F2F2; --red: #E4002B; --redbg: #FFF0F2; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-/* No rubber-band past the ends; if a browser still bounces, the top shows white and the bottom the dark last section */
-html { scroll-behavior: smooth; overscroll-behavior-y: none; background: linear-gradient(var(--bg) 50%, var(--fg) 50%); }
+/* Light only, and no rubber-band past the ends */
+html { scroll-behavior: smooth; overscroll-behavior-y: none; background: var(--bg); }
 body { overscroll-behavior-y: none; font-family: Vazir, Tahoma, sans-serif; background: var(--bg); color: var(--fg); line-height: 1.8; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 a { color: inherit; text-decoration: none; }
 svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -34,6 +35,7 @@ svg.i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor;
 .btn.line { background: transparent; color: var(--fg); }
 .btn.line:hover { background: var(--fg); color: var(--bg); }
 .btn .n { font-weight: 900; }
+.btn .n:empty { display: none; }
 .btn small { font-size: 12px; font-weight: 400; opacity: .7; }
 
 /* hero */
@@ -216,22 +218,22 @@ small.r { color: var(--red) !important; font-weight: 700; }
 
 /* request */
 .req { display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: start; }
-pre { direction: ltr; text-align: left; background: var(--fg); color: #e9e9e9; padding: 28px 30px; font: 13.5px/1.95 ui-monospace, Consolas, monospace; overflow-x: auto; }
-pre .k { color: #fff; font-weight: 700; } pre .s { color: #bdbdbd; } pre .c { color: #6f6f6f; } pre .r { color: #ff4d6d; }
+pre { direction: ltr; text-align: left; background: #F7F7F7; color: #333; border: 1px solid var(--faint); padding: 28px 30px; font: 13.5px/1.95 ui-monospace, Consolas, monospace; overflow-x: auto; }
+pre .k { color: var(--fg); font-weight: 700; } pre .s { color: #555; } pre .c { color: #9a9a9a; } pre .r { color: var(--red); }
 .codes { margin-top: 28px; border-top: 1px solid var(--fg); }
 .codes div { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--faint); font-size: 14px; }
 .codes .mono { background: none; padding: 0; font-weight: 700; }
 
 /* community */
-.join { margin-top: 112px; background: var(--fg); color: var(--bg); }
+.join { margin-top: 112px; background: var(--bg); color: var(--fg); border-top: 1px solid var(--faint); }
 .join .wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; padding-top: 80px; padding-bottom: 80px; align-items: center; }
-.join h2 { color: var(--bg); }
-.join .sub { color: #a8a8a8; }
+.join h2 { color: var(--fg); }
+.join .sub { color: var(--mid); }
 .join .acts { display: flex; flex-direction: column; }
-.join a.act { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid #2b2b2b; font-size: 18px; font-weight: 900; transition: padding .2s; }
-.join a.act:first-child { border-top: 1px solid #2b2b2b; }
+.join a.act { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid var(--faint); font-size: 18px; font-weight: 900; transition: padding .2s; }
+.join a.act:first-child { border-top: 1px solid var(--fg); }
 .join a.act:hover { padding-inline-start: 10px; }
-.join a.act .end { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; color: #a8a8a8; }
+.join a.act .end { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; color: var(--mid); }
 .join a.act .end svg { width: 16px; height: 16px; transform: scaleX(-1); }
 .join a.act .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); display: inline-block; margin-inline-end: 10px; }
 
@@ -329,8 +331,9 @@ footer a { color: var(--fg); font-weight: 700; }
             دانلود آخرین نسخه <small class="ver"></small>
           </a>
           <a class="btn line" href="https://github.com/erfjab/forapp" target="_blank" rel="noopener">
+            <span class="n stars"></span>
             <svg class="i" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/></svg>
-            ستاره در گیت‌هاب <span class="n stars"></span>
+            ستاره در گیت‌هاب
           </a>
         </div>
         <p class="meta">فایل APK از صفحه‌ی Releases گیت‌هاب · رایگان و بدون تبلیغ</p>
@@ -458,7 +461,7 @@ footer a { color: var(--fg); font-weight: 700; }
 <section class="join" id="join">
   <div class="wrap">
     <div>
-      <p class="label" style="color:#8a8a8a">همراهی</p>
+      <p class="label">همراهی</p>
       <h2>فوراپ را همراهی کنید.</h2>
       <p class="sub">فوراپ رایگان و متن‌باز است. با یک ستاره در گیت‌هاب بیشتر دیده می‌شود، و در کانال خبر نسخه‌های تازه را زودتر از همه می‌گیرید.</p>
     </div>
