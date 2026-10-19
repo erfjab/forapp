@@ -53,10 +53,10 @@ public class SmsParserTest {
         assertEquals(Boolean.FALSE, r.deposit);
     }
 
-    @Test public void tomanUnit() {
+    @Test public void amountIsNeverConverted() {
         SmsParser.Result r = p("مبلغ 250,719 تومان به حساب شما واریز شد");
         assertEquals(Long.valueOf(250_719), r.amount);
-        assertEquals("toman", r.unit);
+        assertEquals("rial", r.unit);
         assertEquals(Boolean.TRUE, r.deposit);
     }
 

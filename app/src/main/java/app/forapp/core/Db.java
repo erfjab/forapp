@@ -137,9 +137,6 @@ public final class Db extends SQLiteOpenHelper {
         public Boolean deposit;
         public boolean skipped;
         public long at;
-
-        /** The amount in rial, the only unit the app shows; an SMS written in toman is multiplied by 10. */
-        public Long rial() { return amount == null ? null : "toman".equals(unit) ? amount * 10 : amount; }
         // aggregated delivery state, filled by log()
         public int total, sent, failed, pending;
         public String dests = "", failedDests = ""; // every destination, and only the ones that failed
@@ -572,7 +569,7 @@ public final class Db extends SQLiteOpenHelper {
     /** For the widget: {deposits, sum in rial, deposits with a failed delivery} since a time. Skipped SMS do not count. */
     public long[] todayStats(long since) {
         long[] s = new long[3];
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*), SUM(CASE WHEN unit='toman' THEN amount*10 ELSE amount END),"
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*), SUM(amount),"
                 + " SUM(EXISTS(SELECT 1 FROM dels d WHERE d.msg_id=m.id AND d.status=2)) FROM msgs m WHERE at>=? AND skipped=0", args(since))) {
             if (c.moveToFirst()) for (int i = 0; i < 3; i++) s[i] = c.isNull(i) ? 0 : c.getLong(i);
         }

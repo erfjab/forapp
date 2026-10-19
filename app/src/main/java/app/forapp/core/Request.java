@@ -31,7 +31,7 @@ public final class Request {
     /** Every placeholder, with what it holds (shown in the editor). */
     public static final String[][] VARS = {
             {"amount", "مبلغ به عدد"}, {"amount_text", "مبلغ خوانا، مثل ۱٬۰۰۰٬۱۲۳"}, {"code", "کد سه‌رقمی تطبیق"},
-            {"unit", "rial یا toman"}, {"unit_fa", "ریال یا تومان"}, {"date", "تاریخ شمسی، مثل ۱۴۰۵/۰۷/۱۸"}, {"time", "ساعت، مثل ۱۴:۳۵"},
+            {"unit", "همیشه rial"}, {"unit_fa", "همیشه ریال"}, {"date", "تاریخ شمسی، مثل ۱۴۰۵/۰۷/۱۸"}, {"time", "ساعت، مثل ۱۴:۳۵"},
             {"body", "متن کامل پیامک"}, {"sender", "شماره‌ی فرستنده"}, {"bank", "نام بانک"},
             {"is_deposit", "واریز است یا نه"}, {"received_at", "زمان دریافت (ISO)"}, {"received_at_ms", "زمان دریافت (میلی‌ثانیه)"},
             {"id", "شناسه‌ی یکتای پیامک"}, {"attempt", "شماره‌ی تلاش"}, {"test", "آزمایشی است یا نه"},
@@ -64,9 +64,9 @@ public final class Request {
         v.put("body", m.body);
         v.put("amount", m.amount);
         v.put("code", m.amount == null ? null : SmsParser.code(m.amount));
-        v.put("unit", m.unit);
+        v.put("unit", m.amount == null ? null : "rial");
         v.put("amount_text", m.amount == null ? null : Fa.group(m.amount));
-        v.put("unit_fa", "toman".equals(m.unit) ? "تومان" : "rial".equals(m.unit) ? "ریال" : null);
+        v.put("unit_fa", m.amount == null ? null : "ریال");
         int[] j = Fa.jalali(m.at, TimeZone.getDefault());
         v.put("date", Fa.d(String.format(Locale.US, "%04d/%02d/%02d", j[0], j[1], j[2])));
         v.put("time", Fa.time(m.at, TimeZone.getDefault()));

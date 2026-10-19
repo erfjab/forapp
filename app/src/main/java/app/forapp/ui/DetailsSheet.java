@@ -92,7 +92,7 @@ final class DetailsSheet {
         LinearLayout amtRow = Ui.rowLayout(a);
         amtRow.setGravity(Gravity.BOTTOM);
         Ui.pad(amtRow, 0, 10, 0, 0);
-        TextView amt = Ui.text(a, Ui.amount(a, m), 38, R.color.fg, Ui.W_BLACK);
+        TextView amt = Ui.text(a, Ui.amount(a, m.amount), 38, R.color.fg, Ui.W_BLACK);
         amt.setTextDirection(View.TEXT_DIRECTION_LTR);
         amt.setIncludeFontPadding(false);
         amtRow.addView(amt);

@@ -265,7 +265,7 @@ public final class MainActivity extends BaseActivity {
             if (m.at < today) break;
             if (m.skipped) continue;
             count++;
-            if (m.amount != null) rial += m.rial();
+            if (m.amount != null) rial += m.amount;
             cal.setTimeInMillis(m.at);
             int h = cal.get(java.util.Calendar.HOUR_OF_DAY);
             hours[h]++;
@@ -658,7 +658,7 @@ public final class MainActivity extends BaseActivity {
         TextView time = (TextView) vs[0], bank = (TextView) vs[1], amt = (TextView) vs[2];
         ImageView st = (ImageView) vs[3];
         time.setText(Fa.time(m.at, tz));
-        amt.setText(Ui.amount(this, m));
+        amt.setText(Ui.amount(this, m.amount));
         amt.setAlpha(m.skipped || m.total == 0 ? 0.45f : 1f);
         String b = Ui.iso(m.bank == null ? m.sender : m.bank);
         int icon, tint = R.color.mid, bankColor = R.color.mid, bg = R.color.bg;

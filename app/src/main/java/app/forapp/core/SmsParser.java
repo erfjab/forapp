@@ -14,7 +14,7 @@ public final class SmsParser {
 
     public static final class Result {
         public Long amount;      // as written in the SMS (usually rial)
-        public String unit;      // "rial", "toman" or null
+        public String unit;      // "rial" whenever an amount is found: bank SMS are always in rial
         public Boolean deposit;  // true = deposit, false = withdrawal, null = could not tell
     }
 
@@ -73,11 +73,7 @@ public final class SmsParser {
         }
         if (best >= 0 && bestScore >= 0) {
             r.amount = best;
-            String post = t.substring(bestEnd, Math.min(t.length(), bestEnd + 12)).trim();
-            if (post.startsWith("تومان")) r.unit = "toman";
-            else if (post.startsWith("ریال") || post.toLowerCase(Locale.US).startsWith("rial") || post.startsWith("IRR")) r.unit = "rial";
-            else if (t.contains("ریال")) r.unit = "rial";
-            else if (t.contains("تومان")) r.unit = "toman";
+            r.unit = "rial";
         }
         r.deposit = depositOf(t, bestStart, bestEnd);
         return r;
