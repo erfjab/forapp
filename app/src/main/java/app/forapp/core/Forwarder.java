@@ -372,7 +372,7 @@ public final class Forwarder {
         if (nm == null) return;
         Intent open = c.getPackageManager().getLaunchIntentForPackage(c.getPackageName());
         PendingIntent pi = PendingIntent.getActivity(c, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        String amount = m.amount == null ? "" : Fa.group(m.amount) + " · ";
+        String amount = m.amount == null ? "" : Fa.group(m.rial()) + " ریال · ";
         Notification n = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(app.forapp.R.drawable.ic_notify)
                 .setContentTitle("به " + d.name + " نرسید")

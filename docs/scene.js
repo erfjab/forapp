@@ -85,7 +85,7 @@ function draw() {
   const pulse = st.flash;
   text(fa(count), 340, y + 104, 96, pulse > 0.01 ? mix(C.fg, C.red, pulse) : C.fg, 900);
   text(group(Math.round(sum / 1000) * 1000).replace(/,/g, ','), 20, y + 76, 14, C.fg, 700, 'left');
-  text('تومان امروز', 20, y + 96, 11.5, C.mid, 400, 'left');
+  text('ریال امروز', 20, y + 96, 11.5, C.mid, 400, 'left');
   text('واریز امروز دریافت و ارسال شد.', 340, y + 140, 14, C.fg, 700);
   y += 156;
 

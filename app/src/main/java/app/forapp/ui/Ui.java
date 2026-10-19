@@ -25,6 +25,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import app.forapp.R;
+import app.forapp.core.Db;
 import app.forapp.core.Fa;
 
 /** Tiny view toolkit for the app's Swiss look: black/white, one red, hairlines, big numerals. */
@@ -81,11 +82,21 @@ final class Ui {
 
     /** Amount with the 3-digit matching code in red, always left-to-right. */
     static CharSequence amount(Context c, Long amount) {
+        return amount(c, amount, false);
+    }
+
+    /** A message's amount in rial; for an SMS written in toman the code sits before the added zero. */
+    static CharSequence amount(Context c, Db.Msg m) {
+        return amount(c, m.rial(), "toman".equals(m.unit));
+    }
+
+    private static CharSequence amount(Context c, Long amount, boolean toman) {
         if (amount == null) return "—";
         String s = Fa.group(amount);
         SpannableString sp = new SpannableString(s);
-        int start = Math.max(0, s.length() - 3);
-        sp.setSpan(new ForegroundColorSpan(color(c, R.color.red)), start, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int end = s.length() - (toman ? 1 : 0), start = end, digits = 0;
+        while (start > 0 && digits < 3) if (Character.isDigit(s.charAt(--start))) digits++;
+        sp.setSpan(new ForegroundColorSpan(color(c, R.color.red)), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return sp;
     }
 

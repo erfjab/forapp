@@ -198,7 +198,7 @@ public final class MainActivity extends BaseActivity {
         side.setGravity(Gravity.END);
         heroSum = Ui.text(this, "", 14, R.color.fg, Ui.W_BOLD);
         side.addView(heroSum);
-        side.addView(Ui.text(this, "تومان امروز", 11.5f, R.color.mid, Ui.W_REGULAR));
+        side.addView(Ui.text(this, "ریال امروز", 11.5f, R.color.mid, Ui.W_REGULAR));
         heroBad = Ui.text(this, "", 11.5f, R.color.red, Ui.W_BOLD);
         side.addView(heroBad);
         Ui.pad(side, 0, 0, 0, 10);
@@ -258,14 +258,14 @@ public final class MainActivity extends BaseActivity {
 
         // Today
         int count = 0, failed = 0, waiting = 0;
-        long toman = 0;
+        long rial = 0;
         int[] hours = new int[24], bad = new int[24];
         java.util.Calendar cal = java.util.Calendar.getInstance(tz);
         for (Db.Msg m : all) {
             if (m.at < today) break;
             if (m.skipped) continue;
             count++;
-            if (m.amount != null) toman += "toman".equals(m.unit) ? m.amount : m.amount / 10;
+            if (m.amount != null) rial += m.rial();
             cal.setTimeInMillis(m.at);
             int h = cal.get(java.util.Calendar.HOUR_OF_DAY);
             hours[h]++;
@@ -274,7 +274,7 @@ public final class MainActivity extends BaseActivity {
             else if (m.pending > 0) waiting++;
         }
         heroNum.setText(Fa.d(count));
-        heroSum.setText(Fa.group(toman));
+        heroSum.setText(Fa.group(rial));
         String b = failed > 0 ? Fa.d(failed) + " ناموفق" : "";
         if (waiting > 0) b += (b.isEmpty() ? "" : " · ") + Fa.d(waiting) + " در صف تلاش";
         heroBad.setText(b);
@@ -658,7 +658,7 @@ public final class MainActivity extends BaseActivity {
         TextView time = (TextView) vs[0], bank = (TextView) vs[1], amt = (TextView) vs[2];
         ImageView st = (ImageView) vs[3];
         time.setText(Fa.time(m.at, tz));
-        amt.setText(Ui.amount(this, m.amount));
+        amt.setText(Ui.amount(this, m));
         amt.setAlpha(m.skipped || m.total == 0 ? 0.45f : 1f);
         String b = Ui.iso(m.bank == null ? m.sender : m.bank);
         int icon, tint = R.color.mid, bankColor = R.color.mid, bg = R.color.bg;

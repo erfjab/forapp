@@ -66,7 +66,7 @@
 
             <TextView
                 android:id="@+id/w_line2"
-                android:text="تومان امروز"
+                android:text="ریال امروز"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ellipsize="end"

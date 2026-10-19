@@ -115,13 +115,13 @@ public class Widget extends AppWidgetProvider {
     private static final class State {
         final boolean on, enabled;
         final int count, failed;
-        final long toman;
+        final long rial;
 
         State(boolean on, boolean enabled, long[] stats) {
             this.on = on;
             this.enabled = enabled;
             count = (int) stats[0];
-            toman = stats[1];
+            rial = stats[1];
             failed = (int) stats[2];
         }
     }
@@ -265,7 +265,7 @@ public class Widget extends AppWidgetProvider {
                 return;
             }
             StaticLayout num = line(Fa.d(s.count), black, 38, w);
-            StaticLayout sum = line(Fa.group(s.toman), bold, 13, w);
+            StaticLayout sum = line(Fa.group(s.rial), bold, 13, w);
             fitTo((num.getWidth() + sum.getWidth()) / (d * k * kh) + 12 + start + end);
             num = line(Fa.d(s.count), black, 38, w);
             float right = w - px(start);
@@ -273,7 +273,7 @@ public class Widget extends AppWidgetProvider {
             need = Math.max(need, num.getHeight() * 0.75f); // digits use about three quarters of their line box
             right -= num.getWidth() + px(12);
             int max = (int) (right - px(end));
-            StaticLayout a = line(Fa.group(s.toman), bold, 13, max), b = line("تومان امروز", regular, 10, max);
+            StaticLayout a = line(Fa.group(s.rial), bold, 13, max), b = line("ریال امروز", regular, 10, max);
             if (s.failed == 0) {
                 pair(cf, a, cm, b, right, 0);
                 return;
@@ -308,7 +308,7 @@ public class Widget extends AppWidgetProvider {
                 return;
             }
             boolean empty = s.count == 0;
-            StaticLayout num0 = line(Fa.d(s.count), black, 32, w), sum0 = line(empty ? "هنوز واریزی نیامده" : Fa.group(s.toman), bold, 15, w);
+            StaticLayout num0 = line(Fa.d(s.count), black, 32, w), sum0 = line(empty ? "هنوز واریزی نیامده" : Fa.group(s.rial), bold, 15, w);
             fitTo((num0.getWidth() + sum0.getWidth()) / (d * k * kh) + 2 * pad + 2 * gap + (empty ? 0 : 60 + 2 * gap) + 2);
 
             // deposits
@@ -343,8 +343,8 @@ public class Widget extends AppWidgetProvider {
                 left += px(1) + px(gap);
             }
             int max = (int) (right - left);
-            pair(cf, line(empty ? "هنوز واریزی نیامده" : Fa.group(s.toman), bold, empty ? 12.5f : 15, max), cm,
-                    line(empty ? "آماده‌ی دریافت" : "تومان", regular, 10, max), right, empty ? px(2) : 0);
+            pair(cf, line(empty ? "هنوز واریزی نیامده" : Fa.group(s.rial), bold, empty ? 12.5f : 15, max), cm,
+                    line(empty ? "آماده‌ی دریافت" : "ریال", regular, 10, max), right, empty ? px(2) : 0);
         }
 
         void hairline(float x) {
