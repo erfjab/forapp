@@ -13,6 +13,7 @@ android {
         // CI passes -PversionCode=<run number> and, for a release, -PversionName from the v* tag.
         versionCode Integer.parseInt((project.findProperty("versionCode") ?: "1").toString())
         versionName((project.findProperty("versionName") ?: "1.1.0-dev").toString())
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -56,4 +57,7 @@ android {
 dependencies {
     // No runtime libraries on purpose: the app uses only the Android framework.
     testImplementation "junit:junit:4.13.2"
+    // Emulator tests only (.github/workflows/emulator.yml); not part of the app.
+    androidTestImplementation "androidx.test:runner:1.6.2"
+    androidTestImplementation "androidx.test.ext:junit:1.2.1"
 }

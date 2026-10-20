@@ -180,7 +180,7 @@ final class DetailsSheet {
         switch (d.status) {
             case Db.SENT:
                 st = "رسید"; col = R.color.fg; icon = R.drawable.ic_ok;
-                meta = Fa.time(d.updatedAt, tz);
+                meta = Fa.time(d.updatedAt, tz) + (d.via == null ? "" : " · از " + d.via);
                 break;
             case Db.FAILED:
                 st = "ناموفق"; col = R.color.red; icon = R.drawable.ic_fail;
@@ -191,7 +191,7 @@ final class DetailsSheet {
                 meta = "";
                 break;
             default:
-                boolean unreachable = d.code == null && d.error != null;
+                boolean unreachable = d.code == null && d.error != null && d.trail == null; // a failed pass through proxies is a counted try
                 st = d.attempts == 0 && d.error == null ? "در صف" : unreachable ? "منتظر اتصال" : "تلاش دوباره";
                 col = d.error == null ? R.color.mid : R.color.red; icon = R.drawable.ic_retry;
                 meta = d.error == null ? "" : unreachable
@@ -223,6 +223,7 @@ final class DetailsSheet {
             Ui.pad(mt, 26, 4, 0, 0);
             c.addView(mt);
         }
+        if (d.trail != null && !d.trail.isEmpty()) c.addView(trail(d.trail));
         if (d.error != null && d.status != Db.SENT) {
             TextView err = Ui.text(a, Fa.d(d.error), 12, R.color.red, Ui.W_REGULAR);
             err.setTextIsSelectable(true);
@@ -248,6 +249,33 @@ final class DetailsSheet {
             c.addView(b, p);
         }
         return c;
+    }
+
+    /** Each try of the last pass through the destination's proxies: address, then its time or what went wrong. */
+    private View trail(String trail) {
+        LinearLayout l = Ui.col(a);
+        Ui.pad(l, 26, 6, 0, 0);
+        for (String line : trail.split("\n")) {
+            String[] f = line.split("\t", -1);
+            if (f.length < 3) continue;
+            boolean ok = "ok".equals(f[1]);
+            LinearLayout r = Ui.rowLayout(a);
+            Ui.pad(r, 0, 2, 0, 2);
+            r.addView(Ui.icon(a, ok ? R.drawable.ic_ok : R.drawable.ic_fail, ok ? R.color.fg : R.color.red, 13));
+            TextView where = Ui.ellipsize(Ui.text(a, f[0], 11.5f, R.color.fg, Ui.W_REGULAR));
+            if (!f[0].equals("مستقیم")) {
+                where.setTypeface(android.graphics.Typeface.MONOSPACE);
+                where.setTextDirection(View.TEXT_DIRECTION_LTR);
+                where.setGravity(Gravity.END);
+            }
+            Ui.pad(where, 8, 0, 8, 0);
+            r.addView(where, Ui.weight1());
+            TextView what = Ui.ellipsize(Ui.text(a, Fa.d(f[2]), 11.5f, ok ? R.color.mid : R.color.red, Ui.W_BOLD));
+            what.setMaxWidth(Ui.dp(a, 150));
+            r.addView(what);
+            l.addView(r, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+        return l;
     }
 
     /** One try right now, whatever the automatic schedule says; the result shows on the card and in a toast. */

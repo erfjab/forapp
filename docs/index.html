@@ -241,10 +241,30 @@ footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; g
 footer a { color: var(--fg); font-weight: 700; }
 
 
+/* proxies */
+.pgrid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 56px; align-items: center; }
+.round { border: 1px solid var(--faint); border-radius: 22px; padding: 18px; background: #fff; display: flex; flex-direction: column; gap: 4px; }
+.round header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--fg); }
+.round header b { font-size: 16px; font-weight: 900; }
+.round header small { font-size: 12.5px; color: var(--mid); }
+.prow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.prow .n { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--fg); display: grid; place-items: center; font-size: 12px; font-weight: 900; flex: none; }
+.prow .addr { flex: 1; min-width: 0; font: 13px ui-monospace, Consolas, monospace; direction: ltr; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .kind { font-size: 10.5px; font-weight: 900; border: 1px solid var(--faint); border-radius: 99px; padding: 0 8px; direction: ltr; }
+.prow .res { font-size: 13px; font-weight: 900; min-width: 92px; text-align: left; }
+.prow.bad .res { color: var(--red); }
+.prow.ok .n { background: var(--fg); color: #fff; }
+.prow.skip { opacity: .35; }
+.prow.skip .res { font-weight: 400; color: var(--mid); }
+.round .rule { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px 14px; background: var(--redbg); border-radius: 12px; font-size: 13.5px; }
+.round .rule b { color: var(--red); white-space: nowrap; }
+.round .acts { display: flex; gap: 10px; margin-top: 12px; }
+.round .acts span { flex: 1; text-align: center; font-weight: 700; font-size: 14px; padding: 10px; border: 1.5px solid var(--fg); }
+
 @media (max-width: 960px) {
   .hero .wrap { gap: 0; }
   #scene { height: min(620px, 86vh); }
-  .rows, .req, .tgsec, .faq, .dgrid, .wgrid, .join .wrap { grid-template-columns: 1fr; }
+  .rows, .req, .tgsec, .faq, .dgrid, .wgrid, .pgrid, .join .wrap { grid-template-columns: 1fr; }
   .wgrid { gap: 28px; }
   .faq { gap: 0; }
   .flow, .groups { grid-template-columns: 1fr 1fr; }
@@ -385,7 +405,7 @@ footer a { color: var(--fg); font-weight: 700; }
 
 { <span class="s">"amount"</span>: 2500<span class="r">437</span>, <span class="s">"code"</span>: <span class="r">"437"</span>,
   <span class="s">"bank"</span>: <span class="s">"mellat"</span>, <span class="s">"is_deposit"</span>: true }</pre>
-        <ul class="chips"><li>متد، هدر و بدنه‌ی دلخواه</li><li>بدون ثبت تکراری</li><li>تلاش دوباره</li></ul>
+        <ul class="chips"><li>متد، هدر و بدنه‌ی دلخواه</li><li>بدون ثبت تکراری</li><li>تلاش دوباره</li><li>پروکسی</li></ul>
       </article>
       <article class="dest" data-dest>
         <header><span class="badge tg"><svg viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z"/></svg></span>
@@ -395,8 +415,26 @@ footer a { color: var(--fg); font-weight: 700; }
           <div class="msg"><div class="from">ForApp Bot</div><b>💰 واریز ۲٬۵۰۰٬۴۳۷ ریال</b><br>کد تطبیق: <code>437</code>
             <blockquote>بانک ملت · واریز:2,500,437</blockquote><span class="t">14:35</span></div>
         </div>
-        <ul class="chips"><li>متن دلخواه</li><li><b>پررنگ</b>، <code>کد</code>، نقل‌قول</li><li>پیدا کردن چت آیدی</li></ul>
+        <ul class="chips"><li>متن دلخواه</li><li><b>پررنگ</b>، <code>کد</code>، نقل‌قول</li><li>پیدا کردن چت آیدی</li><li>پروکسی</li></ul>
       </article>
+    </div>
+  </div>
+</section>
+
+<section id="proxy">
+  <div class="wrap pgrid">
+    <div class="head">
+      <p class="label">پروکسی</p>
+      <h2>هر مقصد، پروکسی‌های خودش.</h2>
+      <p class="sub">هر مقصد می‌تواند چند پروکسی داشته باشد. فوراپ به ترتیب امتحانشان می‌کند تا یکی برسد. اگر هیچ‌کدام نرسید، همان یک تلاش ناموفق حساب می‌شود و بعداً دوباره امتحان می‌کند.</p>
+    </div>
+    <div class="round" aria-hidden="true">
+      <header><b>گروه تلگرام</b><small>یک دور ارسال</small></header>
+      <div class="prow bad"><span class="n">۱</span><span class="addr">185.120.44.9:1080</span><span class="kind">SOCKS5</span><span class="res">timeout</span></div>
+      <div class="prow ok"><span class="n">۲</span><span class="addr">proxy.mydomain.ir:3128</span><span class="kind">HTTP</span><span class="res">رسید</span></div>
+      <div class="prow skip"><span class="n">۳</span><span class="addr">91.107.3.21:1080</span><span class="kind">SOCKS5</span><span class="res">لازم نشد</span></div>
+      <div class="rule"><b>هر سه ناموفق؟</b><span>یک تلاش ناموفق ثبت می‌شود و دور بعدی طبق زمان‌بندی انجام می‌شود.</span></div>
+      <div class="acts"><span>تست پروکسی‌ها</span></div>
     </div>
   </div>
 </section>
@@ -426,7 +464,7 @@ footer a { color: var(--fg); font-weight: 700; }
 <section id="features">
   <div class="wrap">
     <div class="tiles">
-      <div class="tile"><b>اینترنت فیلترشده</b><span>تا VPN وصل شود صبر می‌کند</span></div>
+      <div class="tile"><b>اینترنت فیلترشده</b><span>پروکسی جدا برای هر مقصد</span></div>
       <div class="tile"><b>بدون سرور واسطه</b><span>همه‌چیز روی گوشی شما</span></div>
       <div class="tile"><b>ضد واریز جعلی</b><span>فقط شماره‌ی واقعی بانک</span></div>
       <div class="tile"><b>بیش از ۳۰ بانک</b><span>فقط همان‌هایی که می‌خواهید</span></div>
@@ -453,6 +491,7 @@ footer a { color: var(--fg); font-weight: 700; }
       <details open><summary>روی کدام گوشی نصب کنم؟</summary><p>گوشی‌ای که پیامک بانکِ کارت را می‌گیرد. باید روشن و به اینترنت وصل باشد.</p></details>
       <details><summary>پیامک‌ها به سرور شما هم می‌رود؟</summary><p>نه. فوراپ سرور ندارد؛ فقط به مقصدهایی که خودتان تعیین کرده‌اید می‌فرستد.</p></details>
       <details><summary>سرور یا ربات ندارم.</summary><p>فقط مقصد تلگرام بگذارید؛ هر واریز در گروه ادمین‌ها می‌آید.</p></details>
+      <details><summary>تلگرام یا سرورم از گوشی باز نمی‌شود.</summary><p>برای هر مقصد می‌شود یک یا چند پروکسی HTTP یا SOCKS5 تنظیم کرد.</p></details>
       <details><summary>اینترنت قطع شد؟</summary><p>واریز در صف می‌ماند و با وصل شدن فرستاده می‌شود.</p></details>
     </div>
   </div>

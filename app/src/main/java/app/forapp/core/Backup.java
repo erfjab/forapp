@@ -79,6 +79,11 @@ public final class Backup {
             j.putOpt("kind", d.kind);
             j.putOpt("chat_id", d.chatId);
             j.putOpt("parse_mode", d.parseMode);
+            j.put("proxy_on", d.proxyOn);
+            j.put("proxy_direct", d.proxyDirect);
+            JSONArray proxies = new JSONArray();
+            for (Proxies.Proxy px : db.proxies(d.id)) proxies.put(px.url());
+            j.put("proxies", proxies);
             dests.put(j);
         }
         o.put("dests", dests);
@@ -127,6 +132,19 @@ public final class Backup {
             d.kind = opt(j, "kind");
             d.chatId = opt(j, "chat_id");
             d.parseMode = opt(j, "parse_mode");
+            d.proxyOn = j.optBoolean("proxy_on", false);
+            d.proxyDirect = j.optBoolean("proxy_direct", false);
+            JSONArray proxies = j.optJSONArray("proxies");
+            if (proxies != null) {
+                d.proxies = new ArrayList<>();
+                for (int k = 0; k < proxies.length(); k++) {
+                    try {
+                        d.proxies.add(Proxies.parse(proxies.optString(k)));
+                    } catch (IllegalArgumentException ignored) {
+                        // a hand-edited line that is not a proxy address is skipped
+                    }
+                }
+            }
             Set<String> only = new HashSet<>();
             JSONArray b = j.optJSONArray("banks");
             for (int k = 0; b != null && k < b.length(); k++) only.add(b.optString(k));

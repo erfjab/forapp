@@ -38,6 +38,7 @@
         <activity android:name=".ui.SettingsActivity" android:exported="false" />
         <activity android:name=".ui.DestinationsActivity" android:exported="false" />
         <activity android:name=".ui.DestinationEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ProxyEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.BanksActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
         <receiver

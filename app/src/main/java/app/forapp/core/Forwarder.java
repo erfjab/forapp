@@ -66,6 +66,7 @@ public final class Forwarder {
         public final int code;      // HTTP status; 0 when the server could not be reached, -1 when the address itself is wrong
         public final String error;  // null on success
         public final long ms;
+        public String via;          // the proxy that carried it, set for test sends
 
         Result(int code, String error, long ms) {
             this.code = code;
@@ -74,6 +75,9 @@ public final class Forwarder {
         }
 
         public boolean ok() { return code >= 200 && code < 300; }
+
+        /** The server itself answered (any HTTP status, or the address is wrong): another proxy would get the same. 407 is the proxy's own refusal. */
+        boolean answered() { return code != 0 && code != 407; }
 
         /** Server errors, rate limits and network problems are retried; other 4xx mean the request itself is wrong. */
         public boolean retryable() {
@@ -134,14 +138,23 @@ public final class Forwarder {
             return;
         }
         Request q = request(dest, m, d.attempts + 1, false);
-        Result r = post(q, prefs.timeoutSec());
+        Pass pass = send(c, dest, q, prefs.timeoutSec());
+        Result r = pass.result;
         if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
         long now = System.currentTimeMillis();
         String what = "message #" + m.id + " → " + dest.name + " (" + q.method + " " + Trace.host(q.url) + ") try " + (d.attempts + 1)
-                + ": " + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code : "no answer") + " in " + r.ms + "ms";
+                + ": " + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code : "no answer") + " in " + r.ms + "ms"
+                + (pass.via != null ? " via " + pass.via : pass.trail != null ? " · every proxy failed" : "");
         if (r.ok()) {
             Trace.i("SEND", what);
-            db.finishDelivery(d.id, Db.SENT, d.attempts + 1, now, r.code, null);
+            db.finishDelivery(d.id, Db.SENT, d.attempts + 1, now, r.code, null, pass.via, pass.trail);
+        } else if (pass.allProxiesFailed && online(c)) {
+            // One pass through every proxy is one attempt, retried on the usual schedule.
+            boolean again = d.attempts + 1 < prefs.maxAttempts();
+            Trace.i("SEND", what + (again ? " · retry in " + backoffMs(d.attempts + 1) / 1000 + "s" : " · GAVE UP after " + (d.attempts + 1) + " passes"));
+            db.finishDelivery(d.id, again ? Db.PENDING : Db.FAILED, d.attempts + 1, again ? now + backoffMs(d.attempts + 1) : now,
+                    null, r.error, null, pass.trail);
+            if (!again) notifyFailure(c, dest, m, r);
         } else if (r.code == 0) {
             // No answer at all: no internet, VPN off or the address is filtered. That is not the server's fault,
             // so no attempt is used up; retry every minute, and right away when the network changes (watchNetwork).
@@ -151,10 +164,11 @@ public final class Forwarder {
             db.finishDelivery(d.id, Db.PENDING, d.attempts, on ? now + UNREACHABLE_RETRY_MS : now, null, reason(c, r));
         } else if (r.retryable() && d.attempts + 1 < prefs.maxAttempts()) {
             Trace.i("SEND", what + " · " + r.error + " · retry in " + backoffMs(d.attempts + 1) / 1000 + "s");
-            db.finishDelivery(d.id, Db.PENDING, d.attempts + 1, now + backoffMs(d.attempts + 1), r.code > 0 ? r.code : null, r.error);
+            db.finishDelivery(d.id, Db.PENDING, d.attempts + 1, now + backoffMs(d.attempts + 1), r.code > 0 ? r.code : null, r.error,
+                    pass.via, pass.trail);
         } else {
             Trace.i("SEND", what + " · " + r.error + " · GAVE UP" + (r.retryable() ? " after " + (d.attempts + 1) + " tries" : ", not retryable"));
-            db.finishDelivery(d.id, Db.FAILED, d.attempts + 1, now, r.code > 0 ? r.code : null, r.error);
+            db.finishDelivery(d.id, Db.FAILED, d.attempts + 1, now, r.code > 0 ? r.code : null, r.error, pass.via, pass.trail);
             notifyFailure(c, dest, m, r);
         }
     }
@@ -184,13 +198,15 @@ public final class Forwarder {
             r = new Result(0, "مقصد حذف شده", 0);
             db.finishDelivery(d.id, Db.FAILED, d.attempts, 0, null, r.error);
         } else {
-            r = post(request(dest, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
+            Pass pass = send(c, dest, request(dest, m, d.attempts + 1, false), Prefs.of(c).timeoutSec());
+            r = pass.result;
             Trace.i("SEND", "manual send of message #" + m.id + " → " + dest.name + ": "
-                    + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms");
+                    + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms"
+                    + (pass.via != null ? " via " + pass.via : ""));
             if (r.code > 0) db.setDestLast(dest.id, r.code, r.ms);
-            if (r.ok()) db.finishDelivery(d.id, Db.SENT, d.attempts + 1, System.currentTimeMillis(), r.code, null);
+            if (r.ok()) db.finishDelivery(d.id, Db.SENT, d.attempts + 1, System.currentTimeMillis(), r.code, null, pass.via, pass.trail);
             else db.finishDelivery(d.id, d.status == Db.SENDING ? Db.PENDING : d.status, d.attempts, d.nextAt,
-                    r.code > 0 ? r.code : null, reason(c, r));
+                    r.code > 0 ? r.code : null, pass.allProxiesFailed ? r.error : reason(c, r), pass.via, pass.trail);
         }
         schedule(c);
         changed();
@@ -235,10 +251,17 @@ public final class Forwarder {
     }
 
     public static Result post(Request q, int timeoutSec) {
+        return post(q, timeoutSec, null);
+    }
+
+    /** Sends the request, through {@code proxy} when it is not null. */
+    public static Result post(Request q, int timeoutSec, Proxies.Proxy proxy) {
         long t0 = System.currentTimeMillis();
         HttpURLConnection h = null;
         try {
-            h = (HttpURLConnection) new URL(q.url).openConnection();
+            if (proxy != null) Proxies.install();
+            URL u = new URL(q.url);
+            h = (HttpURLConnection) (proxy == null ? u.openConnection() : u.openConnection(proxy.java()));
             h.setConnectTimeout(Math.min(timeoutSec, 8) * 1000);
             h.setReadTimeout(timeoutSec * 1000);
             h.setRequestMethod(q.method);
@@ -247,6 +270,8 @@ public final class Forwarder {
             h.setRequestProperty("Accept", "application/json");
             h.setRequestProperty("User-Agent", "ForApp/1.0 (Android " + Build.VERSION.RELEASE + ")");
             for (String[] hd : q.headers) h.setRequestProperty(hd[0], hd[1]); // the destination's own headers win
+            // Android does not answer an HTTP proxy's 407 by itself, so the login goes with the request (and the CONNECT for https).
+            if (proxy != null && !proxy.socks() && proxy.auth()) h.setRequestProperty("Proxy-Authorization", proxy.basicAuth());
             if (q.body != null) {
                 byte[] bytes = q.body.getBytes(StandardCharsets.UTF_8);
                 h.setDoOutput(true);
@@ -265,6 +290,7 @@ public final class Forwarder {
         } catch (java.net.MalformedURLException | ClassCastException | IllegalArgumentException e) { // not an http(s) address, bad header
             return new Result(-1, "آدرس یا هدرهای مقصد درست نیست", System.currentTimeMillis() - t0);
         } catch (Exception e) {
+            if (proxy != null) return new Result(0, Proxies.shortError(e), System.currentTimeMillis() - t0);
             return new Result(0, e.getClass().getSimpleName() + (e.getMessage() == null ? "" : ": " + e.getMessage()),
                     System.currentTimeMillis() - t0);
         } finally {
@@ -272,11 +298,63 @@ public final class Forwarder {
         }
     }
 
+    /** One pass: the result that counts, the proxy that carried it, and how each try went (null without proxies). */
+    static final class Pass {
+        final Result result;
+        final String via, trail;
+        final boolean allProxiesFailed;
+
+        Pass(Result result, String via, String trail, boolean allProxiesFailed) {
+            this.result = result;
+            this.via = via;
+            this.trail = trail;
+            this.allProxiesFailed = allProxiesFailed;
+        }
+    }
+
+    /**
+     * Sends once, or once through each of the destination's proxies in order until one gets an answer from the server.
+     * An answer of any kind ends the pass, since another proxy would reach the same server. When none gets through,
+     * the destination may try once without a proxy; otherwise the pass counts as one failed attempt.
+     */
+    static Pass send(Context c, Db.Dest d, Request q, int timeoutSec) {
+        List<Proxies.Proxy> ps = !d.proxyOn ? new ArrayList<>() : d.proxies != null ? d.proxies : Db.get(c).proxies(d.id);
+        if (ps.isEmpty()) return new Pass(post(q, timeoutSec, null), null, null, false);
+        StringBuilder trail = new StringBuilder();
+        long total = 0;
+        for (int i = 0; i < ps.size(); i++) {
+            Proxies.Proxy p = ps.get(i);
+            Result r = post(q, timeoutSec, p);
+            total += r.ms;
+            Db.get(c).setProxyLast(p.id, r.answered(), r.ms, r.answered() ? null : r.error);
+            line(trail, p.hostPort(), r);
+            if (r.answered()) return new Pass(r, "پروکسی " + Fa.d(i + 1) + " · " + p.typeLabel(), trail.toString(), false);
+            Trace.i("SEND", d.name + ": proxy " + (i + 1) + " " + p.typeLabel() + " " + p.hostPort() + " did not get through · " + r.error);
+        }
+        if (d.proxyDirect) {
+            Result r = post(q, timeoutSec, null);
+            line(trail, "مستقیم", r);
+            if (r.answered()) return new Pass(r, "مستقیم", trail.toString(), false);
+            total += r.ms;
+        }
+        String n = Fa.d(ps.size());
+        return new Pass(new Result(0, ps.size() == 1 ? "پروکسی نرسید" : "هیچ‌کدام از " + n + " پروکسی نرسید", total), null, trail.toString(), true);
+    }
+
+    private static void line(StringBuilder b, String where, Result r) {
+        if (b.length() > 0) b.append('\n');
+        String detail = r.answered() ? (r.ok() ? Fa.d(r.ms) + " ms" : "HTTP " + r.code) : r.error == null ? "" : r.error;
+        b.append(where).append('\t').append(r.answered() ? "ok" : "fail").append('\t').append(detail.replace('\n', ' ').replace('\t', ' '));
+    }
+
     /** Sends a clearly marked test payload; used by the "ارسال آزمایشی" buttons. */
     public static Result test(Context c, Db.Dest d) {
-        Result r = post(request(d, Request.sample(true), 1, true), Prefs.of(c).timeoutSec());
+        Pass pass = send(c, d, request(d, Request.sample(true), 1, true), Prefs.of(c).timeoutSec());
+        Result r = pass.result;
         Trace.i("SEND", "test send → " + d.name + " (" + Trace.host(d.url) + "): "
-                + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms");
+                + (r.ok() ? "OK " + r.code : r.code > 0 ? "HTTP " + r.code + " · " + r.error : "no answer · " + r.error) + " in " + r.ms + "ms"
+                + (pass.via != null ? " via " + pass.via : ""));
+        r.via = pass.via;
         if (d.id > 0 && r.code > 0) Db.get(c).setDestLast(d.id, r.code, r.ms);
         return r;
     }

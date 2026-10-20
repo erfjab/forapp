@@ -138,9 +138,25 @@ public final class Telegram {
     /**
      * Chats that recently messaged the bot (or added it), newest first, as {chat ID, name, kind}. Reads getUpdates
      * without an offset, so nothing is marked as read for any other program using the same bot.
+     * With proxies, they are tried in order until one connects.
      */
-    public static List<String[]> recentChats(String api, String token, int timeoutSec) throws Exception {
-        HttpURLConnection h = (HttpURLConnection) new URL(api(api) + "/bot" + token.trim() + "/getUpdates?limit=100").openConnection();
+    public static List<String[]> recentChats(String api, String token, int timeoutSec, List<Proxies.Proxy> proxies) throws Exception {
+        if (proxies == null || proxies.isEmpty()) return recentChats(api, token, timeoutSec, (Proxies.Proxy) null);
+        java.io.IOException last = null;
+        for (Proxies.Proxy p : proxies) {
+            try {
+                return recentChats(api, token, timeoutSec, p);
+            } catch (java.io.IOException e) { // could not get through this proxy; the next one may
+                last = e;
+            }
+        }
+        throw last;
+    }
+
+    private static List<String[]> recentChats(String api, String token, int timeoutSec, Proxies.Proxy proxy) throws Exception {
+        URL address = new URL(api(api) + "/bot" + token.trim() + "/getUpdates?limit=100");
+        if (proxy != null) Proxies.install();
+        HttpURLConnection h = (HttpURLConnection) (proxy == null ? address.openConnection() : address.openConnection(proxy.java()));
         try {
             h.setConnectTimeout(Math.min(timeoutSec, 8) * 1000);
             h.setReadTimeout(timeoutSec * 1000);

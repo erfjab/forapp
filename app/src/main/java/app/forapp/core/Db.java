@@ -28,7 +28,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "forapp.db", null, 4);
+        super(c, "forapp.db", null, 5);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -37,7 +37,9 @@ public final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE banks(id INTEGER PRIMARY KEY, name TEXT NOT NULL, senders TEXT NOT NULL DEFAULT '')");
         db.execSQL("CREATE TABLE dests(id INTEGER PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '',"
                 + " enabled INTEGER NOT NULL DEFAULT 1, all_banks INTEGER NOT NULL DEFAULT 1, last_code INTEGER, last_ms INTEGER, last_at INTEGER,"
-                + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT, kind TEXT, chat_id TEXT, parse_mode TEXT)");
+                + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT, kind TEXT, chat_id TEXT, parse_mode TEXT,"
+                + " proxy_on INTEGER NOT NULL DEFAULT 0, proxy_direct INTEGER NOT NULL DEFAULT 0)");
+        createProxies(db);
         db.execSQL("CREATE TABLE dest_banks(dest_id INTEGER NOT NULL, bank_id INTEGER NOT NULL, PRIMARY KEY(dest_id, bank_id))");
         db.execSQL("CREATE TABLE msgs(id INTEGER PRIMARY KEY, uid TEXT NOT NULL, fp TEXT NOT NULL UNIQUE, sender TEXT NOT NULL,"
                 + " bank_id INTEGER, bank TEXT, body TEXT NOT NULL, amount INTEGER, unit TEXT, deposit INTEGER,"
@@ -45,7 +47,7 @@ public final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX msgs_at ON msgs(at)");
         db.execSQL("CREATE TABLE dels(id INTEGER PRIMARY KEY, msg_id INTEGER NOT NULL, dest_id INTEGER NOT NULL, dest TEXT NOT NULL,"
                 + " status INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL DEFAULT 0,"
-                + " code INTEGER, error TEXT, updated_at INTEGER NOT NULL DEFAULT 0, UNIQUE(msg_id, dest_id))");
+                + " code INTEGER, error TEXT, updated_at INTEGER NOT NULL DEFAULT 0, via TEXT, trail TEXT, UNIQUE(msg_id, dest_id))");
         db.execSQL("CREATE INDEX dels_due ON dels(status, next_at)");
         addMissingBanks(db, 0);
     }
@@ -61,6 +63,18 @@ public final class Db extends SQLiteOpenHelper {
             // v4: a destination can be a Telegram chat; NULL kind is a webhook.
             for (String col : new String[]{"kind", "chat_id", "parse_mode"}) db.execSQL("ALTER TABLE dests ADD COLUMN " + col + " TEXT");
         }
+        if (oldV < 5) {
+            // v5: proxies per destination, and which one carried each delivery
+            db.execSQL("ALTER TABLE dests ADD COLUMN proxy_on INTEGER NOT NULL DEFAULT 0");
+            db.execSQL("ALTER TABLE dests ADD COLUMN proxy_direct INTEGER NOT NULL DEFAULT 0");
+            for (String col : new String[]{"via", "trail"}) db.execSQL("ALTER TABLE dels ADD COLUMN " + col + " TEXT");
+            createProxies(db);
+        }
+    }
+
+    private static void createProxies(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE proxies(id INTEGER PRIMARY KEY, dest_id INTEGER NOT NULL, pos INTEGER NOT NULL, type TEXT NOT NULL,"
+                + " host TEXT NOT NULL, port INTEGER NOT NULL, user TEXT, pass TEXT, last_ok INTEGER, last_ms INTEGER, last_error TEXT, last_at INTEGER)");
     }
 
     /** Iranian banks offered out of the box; the user adds each one's SMS sender. Banks merged into Sepah are left out. */
@@ -86,7 +100,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private static final String DEST_COLS = "id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at, method, headers, body_type, body_tpl,"
-            + " kind, chat_id, parse_mode";
+            + " kind, chat_id, parse_mode, proxy_on, proxy_direct";
 
     // ---------- models ----------
 
@@ -122,6 +136,11 @@ public final class Db extends SQLiteOpenHelper {
         // A Telegram chat instead of a webhook: url is the Bot API server, apiKey the bot token and bodyTpl the message.
         public String kind, chatId, parseMode;
 
+        // Proxies are tried in order before a pass counts as failed; proxyDirect adds a try without one at the end.
+        public boolean proxyOn, proxyDirect;
+        /** Set when the destination's proxies should be saved with it; null leaves the stored ones alone. */
+        public List<Proxies.Proxy> proxies;
+
         public boolean telegram() { return Telegram.KIND.equals(kind); }
         public String parseMode() { return parseMode == null ? Telegram.MARKDOWN : parseMode; }
         public String template() { return bodyTpl == null ? Telegram.DEFAULT_TEMPLATE : bodyTpl; }
@@ -148,6 +167,8 @@ public final class Db extends SQLiteOpenHelper {
         public int status, attempts;
         public Integer code;
         public long nextAt, updatedAt;
+        // The proxy that carried it, like "پروکسی ۲ · SOCKS5", and each try of the last pass, one per line: address TAB ok|fail TAB detail
+        public String via, trail;
     }
 
     // ---------- banks ----------
@@ -260,6 +281,8 @@ public final class Db extends SQLiteOpenHelper {
         d.kind = c.getString(13);
         d.chatId = c.getString(14);
         d.parseMode = c.getString(15);
+        d.proxyOn = c.getInt(16) == 1;
+        d.proxyDirect = c.getInt(17) == 1;
         return d;
     }
 
@@ -290,8 +313,11 @@ public final class Db extends SQLiteOpenHelper {
             v.put("kind", d.kind);
             v.put("chat_id", d.chatId);
             v.put("parse_mode", d.parseMode);
+            v.put("proxy_on", d.proxyOn ? 1 : 0);
+            v.put("proxy_direct", d.proxyDirect ? 1 : 0);
             if (d.id == 0) d.id = db.insert("dests", null, v);
             else db.update("dests", v, "id=?", args(d.id));
+            if (d.proxies != null) saveProxies(db, d.id, d.proxies);
             db.delete("dest_banks", "dest_id=?", args(d.id));
             for (long b : bankIds) {
                 ContentValues bv = new ContentValues();
@@ -318,7 +344,68 @@ public final class Db extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.delete("dests", "id=?", args(id));
         db.delete("dest_banks", "dest_id=?", args(id));
+        db.delete("proxies", "dest_id=?", args(id));
         db.delete("dels", "dest_id=? AND status IN (0,3)", args(id));
+    }
+
+    // ---------- proxies ----------
+
+    public List<Proxies.Proxy> proxies(long destId) {
+        List<Proxies.Proxy> l = new ArrayList<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id, type, host, port, user, pass, last_ok, last_ms, last_error, last_at"
+                + " FROM proxies WHERE dest_id=? ORDER BY pos, id", args(destId))) {
+            while (c.moveToNext()) {
+                Proxies.Proxy p = new Proxies.Proxy();
+                p.id = c.getLong(0);
+                p.type = c.getString(1);
+                p.host = c.getString(2);
+                p.port = c.getInt(3);
+                p.user = c.getString(4);
+                p.pass = c.getString(5);
+                p.lastOk = c.isNull(6) ? null : c.getInt(6) == 1;
+                p.lastMs = c.isNull(7) ? 0 : c.getLong(7);
+                p.lastError = c.getString(8);
+                p.lastAt = c.isNull(9) ? 0 : c.getLong(9);
+                l.add(p);
+            }
+        }
+        return l;
+    }
+
+    /** Stores the list in its order: rows keep their id (and last test), removed ones are deleted. */
+    private static void saveProxies(SQLiteDatabase db, long destId, List<Proxies.Proxy> list) {
+        StringBuilder keep = new StringBuilder();
+        for (Proxies.Proxy p : list) if (p.id > 0) keep.append(keep.length() > 0 ? "," : "").append(p.id);
+        db.delete("proxies", "dest_id=?" + (keep.length() > 0 ? " AND id NOT IN (" + keep + ")" : ""), args(destId));
+        for (int i = 0; i < list.size(); i++) {
+            Proxies.Proxy p = list.get(i);
+            ContentValues v = new ContentValues();
+            v.put("dest_id", destId);
+            v.put("pos", i);
+            v.put("type", p.type);
+            v.put("host", p.host);
+            v.put("port", p.port);
+            v.put("user", p.user);
+            v.put("pass", p.pass);
+            if (p.lastOk == null) v.putNull("last_ok");
+            else v.put("last_ok", p.lastOk ? 1 : 0);
+            v.put("last_ms", p.lastMs);
+            v.put("last_error", p.lastError);
+            v.put("last_at", p.lastAt);
+            if (p.id > 0 && db.update("proxies", v, "id=? AND dest_id=?", new String[]{String.valueOf(p.id), String.valueOf(destId)}) > 0) continue;
+            p.id = db.insert("proxies", null, v);
+        }
+    }
+
+    /** Remembers how the last test or send through a proxy went, for the list on the destination screen. */
+    public void setProxyLast(long id, boolean ok, long ms, String error) {
+        if (id <= 0) return;
+        ContentValues v = new ContentValues();
+        v.put("last_ok", ok ? 1 : 0);
+        v.put("last_ms", ms);
+        v.put("last_error", error);
+        v.put("last_at", System.currentTimeMillis());
+        getWritableDatabase().update("proxies", v, "id=?", args(id));
     }
 
     public void setDestLast(long id, int code, long ms) {
@@ -452,7 +539,7 @@ public final class Db extends SQLiteOpenHelper {
     public List<Delivery> deliveries(long msgId) {
         List<Delivery> l = new ArrayList<>();
         try (Cursor c = getReadableDatabase().rawQuery(
-                "SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at FROM dels WHERE msg_id=? ORDER BY id", args(msgId))) {
+                "SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at, via, trail FROM dels WHERE msg_id=? ORDER BY id", args(msgId))) {
             while (c.moveToNext()) l.add(readDel(c));
         }
         return l;
@@ -470,6 +557,8 @@ public final class Db extends SQLiteOpenHelper {
         d.code = c.isNull(7) ? null : c.getInt(7);
         d.error = c.getString(8);
         d.updatedAt = c.getLong(9);
+        d.via = c.getString(10);
+        d.trail = c.getString(11);
         return d;
     }
 
@@ -489,7 +578,7 @@ public final class Db extends SQLiteOpenHelper {
                 for (Long id : onlyMsgIds) b.append(b.length() > 0 ? "," : "").append(id);
                 filter = " AND msg_id IN (" + b + ")";
             }
-            try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at FROM dels"
+            try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at, via, trail FROM dels"
                     + " WHERE ((status=0 AND next_at<=?) OR (status=3 AND updated_at<?))" + filter + " ORDER BY next_at LIMIT " + limit,
                     new String[]{String.valueOf(now), String.valueOf(now - STALE_SENDING_MS)})) {
                 while (c.moveToNext()) l.add(readDel(c));
@@ -516,7 +605,14 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     public void finishDelivery(long id, int status, int attempts, long nextAt, Integer code, String error) {
+        finishDelivery(id, status, attempts, nextAt, code, error, null, null);
+    }
+
+    /** Also records which proxy carried it and how each try of the pass went; both null when it went without a proxy. */
+    public void finishDelivery(long id, int status, int attempts, long nextAt, Integer code, String error, String via, String trail) {
         ContentValues v = new ContentValues();
+        v.put("via", via);
+        v.put("trail", trail);
         v.put("status", status);
         v.put("attempts", attempts);
         v.put("next_at", nextAt);
@@ -533,7 +629,7 @@ public final class Db extends SQLiteOpenHelper {
         db.beginTransaction();
         try {
             Delivery d = null;
-            try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at FROM dels"
+            try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at, via, trail FROM dels"
                     + " WHERE id=? AND (status IN (0,2) OR (status=3 AND updated_at<?))",
                     new String[]{String.valueOf(id), String.valueOf(now - STALE_SENDING_MS)})) {
                 if (c.moveToFirst()) d = readDel(c);

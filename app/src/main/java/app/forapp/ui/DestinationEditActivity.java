@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.text.Html;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
@@ -19,6 +20,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +30,7 @@ import app.forapp.core.Db;
 import app.forapp.core.Fa;
 import app.forapp.core.Forwarder;
 import app.forapp.core.Prefs;
+import app.forapp.core.Proxies;
 import app.forapp.core.Request;
 import app.forapp.core.Telegram;
 
@@ -80,6 +83,7 @@ public final class DestinationEditActivity extends BaseActivity {
         f.addView(telegramTop);
         buildWebhookTop(webhookTop);
         buildTelegramTop(telegramTop);
+        buildProxies(f, isNew ? new ArrayList<>() : db.proxies(dest.id));
 
         f.addView(Ui.section(this, "بانک‌ها"));
         allBanks = Ui.toggle(this, dest.allBanks);
@@ -418,12 +422,13 @@ public final class DestinationEditActivity extends BaseActivity {
                 .setNegativeButton("بستن", null).show();
         String server = apiServer.getText().toString().trim();
         int timeout = Prefs.of(this).timeoutSec();
+        List<Proxies.Proxy> chatProxies = proxyOn.isChecked() ? new ArrayList<>(proxies) : null;
         new Thread(() -> {
             List<String[]> chats;
             try {
-                chats = Telegram.recentChats(server, t, timeout);
+                chats = Telegram.recentChats(server, t, timeout, chatProxies);
             } catch (java.net.UnknownHostException | java.net.SocketTimeoutException | java.net.ConnectException e) {
-                runOnUiThread(() -> { if (wait.isShowing()) wait.setMessage("به سرور تلگرام وصل نشد. VPN یا «سرور Bot API» را بررسی کنید."); });
+                runOnUiThread(() -> { if (wait.isShowing()) wait.setMessage("به سرور تلگرام وصل نشد. پروکسی‌ها یا «سرور Bot API» را بررسی کنید."); });
                 return;
             } catch (Exception e) {
                 runOnUiThread(() -> { if (wait.isShowing()) wait.setMessage(String.valueOf(e.getMessage())); });
@@ -454,6 +459,302 @@ public final class DestinationEditActivity extends BaseActivity {
         d.parseMode = Telegram.MARKDOWN.equals(parse) ? null : parse;
         String tpl = tplEd.getText().toString();
         d.bodyTpl = tpl.equals(Telegram.DEFAULT_TEMPLATE) ? null : tpl;
+    }
+
+    // ---------- proxies ----------
+
+    private static final int REQ_PROXY = 7;
+    private final List<Proxies.Proxy> proxies = new ArrayList<>();
+    private Switch proxyOn, proxyDirect;
+    private LinearLayout proxyList;
+
+    /** Proxies tried in order, one pass per attempt; edited here and saved with the destination. */
+    private void buildProxies(LinearLayout f, List<Proxies.Proxy> stored) {
+        proxies.addAll(stored);
+        f.addView(Ui.section(this, "پروکسی"));
+        f.addView(Ui.hairline(this, R.color.line));
+        proxyOn = Ui.toggle(this, dest.proxyOn);
+        f.addView(Ui.row(this, "ارسال از طریق پروکسی", "به ترتیب امتحان می‌شوند، تا یکی برسد", proxyOn));
+        proxyList = Ui.col(this);
+        f.addView(proxyList);
+        f.addView(Ui.hairline(this, R.color.line));
+        TextView add = link("＋ افزودن پروکسی");
+        Ui.pad(add, 20, 12, 20, 0);
+        add.setOnClickListener(v -> editProxy(-1));
+        f.addView(add);
+        LinearLayout acts = Ui.col(this);
+        Ui.pad(acts, 20, 16, 20, 0);
+        acts.addView(Ui.button(this, "تست پروکسی‌ها", false, v -> testProxies()), full());
+        f.addView(acts);
+        View gap = new View(this);
+        f.addView(gap, Ui.lp(1, Ui.dp(this, 12)));
+        f.addView(Ui.hairline(this, R.color.line));
+        proxyDirect = Ui.toggle(this, dest.proxyDirect);
+        f.addView(Ui.row(this, "اگر هیچ‌کدام نرسید، مستقیم بفرست", "بدون پروکسی، در آخر همان دور", proxyDirect));
+        f.addView(Ui.hairline(this, R.color.line));
+        renderProxies();
+    }
+
+    private void renderProxies() {
+        if (proxyList == null) return;
+        // a test send or test sheet may have updated the stored status of saved proxies
+        if (dest.id > 0) {
+            List<Proxies.Proxy> fresh = Db.get(this).proxies(dest.id);
+            for (Proxies.Proxy p : proxies)
+                for (Proxies.Proxy s : fresh)
+                    if (p.id > 0 && p.id == s.id && s.lastAt > p.lastAt) {
+                        p.lastOk = s.lastOk; p.lastMs = s.lastMs; p.lastError = s.lastError; p.lastAt = s.lastAt;
+                    }
+        }
+        proxyList.removeAllViews();
+        for (int i = 0; i < proxies.size(); i++) {
+            proxyList.addView(Ui.hairline(this, R.color.line));
+            proxyList.addView(proxyRow(i));
+        }
+    }
+
+    private View proxyRow(int i) {
+        Proxies.Proxy p = proxies.get(i);
+        LinearLayout r = Ui.rowLayout(this);
+        Ui.pad(r, 12, 10, 20, 10);
+        r.setMinimumHeight(Ui.dp(this, 52));
+        Ui.ripple(r, false);
+        r.setOnClickListener(v -> editProxy(i));
+
+        TextView handle = Ui.text(this, "⋮⋮", 15, R.color.mid, Ui.W_BOLD);
+        handle.setAlpha(0.5f);
+        Ui.pad(handle, 8, 8, 8, 8);
+        handle.setContentDescription("جابه‌جا کردن");
+        handle.setOnTouchListener(new DragHandle(r, i));
+        r.addView(handle);
+
+        TextView n = Ui.text(this, Fa.d(i + 1), 11, R.color.fg, Ui.W_BLACK);
+        n.setGravity(Gravity.CENTER);
+        n.setBackground(Ui.outline(this, R.color.fg, 99, 1.5f, false));
+        LinearLayout.LayoutParams np = Ui.lp(Ui.dp(this, 22), Ui.dp(this, 22));
+        np.setMarginEnd(Ui.dp(this, 10));
+        r.addView(n, np);
+
+        LinearLayout t = Ui.col(this);
+        TextView addr = Ui.ellipsize(Ui.text(this, p.label(), 12.5f, R.color.fg, Ui.W_BOLD));
+        addr.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        addr.setTextDirection(View.TEXT_DIRECTION_LTR);
+        addr.setGravity(Gravity.END);
+        t.addView(addr, full());
+        boolean bad = Boolean.FALSE.equals(p.lastOk);
+        String sub = p.lastOk == null ? "هنوز تست نشده"
+                : p.lastOk ? Fa.d(p.lastMs) + " میلی‌ثانیه · " + Fa.ago(p.lastAt, System.currentTimeMillis())
+                : "وصل نشد · " + (p.lastError == null ? "" : p.lastError);
+        TextView st = Ui.ellipsize(Ui.text(this, sub, 11, bad ? R.color.red : R.color.mid, Ui.W_REGULAR));
+        t.addView(st, full());
+        r.addView(t, Ui.weight1());
+
+        TextView tag = Ui.text(this, p.typeLabel(), 10, R.color.fg, Ui.W_BLACK);
+        Ui.pad(tag, 7, 0, 7, 0);
+        tag.setBackground(Ui.outline(this, R.color.faint, 99, 1, false));
+        LinearLayout.LayoutParams tp = Ui.lp(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tp.setMarginStart(Ui.dp(this, 10));
+        r.addView(tag, tp);
+
+        View dot = new View(this);
+        dot.setBackground(Ui.fill(this, p.lastOk == null ? R.color.faint : bad ? R.color.red : R.color.fg, 99));
+        LinearLayout.LayoutParams dp = Ui.lp(Ui.dp(this, 8), Ui.dp(this, 8));
+        dp.setMarginStart(Ui.dp(this, 10));
+        r.addView(dot, dp);
+        return r;
+    }
+
+    /** Drag the handle up or down; the row follows the finger and lands where it is let go. */
+    private final class DragHandle implements View.OnTouchListener {
+        private final View row;
+        private final int index;
+        private float startY;
+
+        DragHandle(View row, int index) {
+            this.row = row;
+            this.index = index;
+        }
+
+        @Override
+        public boolean onTouch(View v, MotionEvent e) {
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startY = e.getRawY();
+                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                    row.setElevation(Ui.dp(DestinationEditActivity.this, 4));
+                    row.setBackgroundColor(Ui.color(DestinationEditActivity.this, R.color.bg));
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    row.setTranslationY(e.getRawY() - startY);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    int h = Math.max(1, row.getHeight());
+                    int to = Math.max(0, Math.min(proxies.size() - 1, index + Math.round((e.getRawY() - startY) / h)));
+                    row.setTranslationY(0);
+                    row.setElevation(0);
+                    if (to != index) {
+                        Proxies.Proxy moved = proxies.remove(index);
+                        proxies.add(to, moved);
+                    }
+                    renderProxies();
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    /** Where the proxies are tested to: the webhook, or the Telegram Bot API server. */
+    private String proxyTarget() {
+        if (tg) {
+            String s = apiServer.getText().toString().trim();
+            return s.isEmpty() ? Telegram.API : s;
+        }
+        return url.getText().toString().trim();
+    }
+
+    private void editProxy(int i) {
+        Intent in = new Intent(this, ProxyEditActivity.class);
+        in.putExtra(ProxyEditActivity.EXTRA_INDEX, i);
+        in.putExtra(ProxyEditActivity.EXTRA_TARGET, proxyTarget());
+        if (i >= 0) ProxyEditActivity.put(in, proxies.get(i));
+        startActivityForResult(in, REQ_PROXY);
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_PROXY || res != RESULT_OK || data == null) return;
+        int i = data.getIntExtra(ProxyEditActivity.EXTRA_INDEX, -1);
+        if (data.getBooleanExtra(ProxyEditActivity.EXTRA_DELETE, false)) {
+            if (i >= 0 && i < proxies.size()) proxies.remove(i);
+        } else {
+            Proxies.Proxy p = ProxyEditActivity.read(data);
+            if (i >= 0 && i < proxies.size()) proxies.set(i, p);
+            else {
+                proxies.add(p);
+                if (proxies.size() == 1) proxyOn.setChecked(true); // the first proxy turns sending through proxies on
+            }
+        }
+        renderProxies();
+    }
+
+    /** Tests every proxy at once: a connection through it to this destination's host, nothing sent. */
+    private void testProxies() {
+        if (proxies.isEmpty()) {
+            Ui.toast(this, "اول یک پروکسی اضافه کنید");
+            return;
+        }
+        String target = proxyTarget();
+        if (!target.matches("(?i)^https?://[^\\s/]+.*")) {
+            Ui.toast(this, "اول آدرس مقصد را درست بنویسید");
+            return;
+        }
+        LinearLayout c = Ui.col(this);
+        c.addView(Ui.text(this, "تست پروکسی‌ها", 17, R.color.fg, Ui.W_BLACK));
+        TextView to = Ui.text(this, "تا " + app.forapp.core.Trace.host(target), 12, R.color.mid, Ui.W_REGULAR);
+        c.addView(to);
+        LinearLayout sum = Ui.rowLayout(this);
+        sum.setGravity(Gravity.BOTTOM);
+        Ui.pad(sum, 0, 12, 0, 0);
+        TextView big = Ui.text(this, "", 36, R.color.fg, Ui.W_BLACK);
+        big.setIncludeFontPadding(false);
+        sum.addView(big);
+        TextView bigSub = Ui.text(this, "جواب دادند", 12, R.color.mid, Ui.W_REGULAR);
+        Ui.pad(bigSub, 10, 0, 0, 4);
+        sum.addView(bigSub);
+        c.addView(sum);
+        LinearLayout bar = Ui.rowLayout(this);
+        Ui.pad(bar, 0, 8, 0, 4);
+        c.addView(bar, full());
+        LinearLayout cards = Ui.col(this);
+        c.addView(cards, full());
+        LinearLayout btns = Ui.rowLayout(this);
+        Ui.pad(btns, 0, 16, 0, 0);
+        c.addView(btns, full());
+        android.app.Dialog dlg = Ui.sheet(this, c);
+        Runnable[] run = new Runnable[1];
+        btns.addView(Ui.button(this, "تست دوباره", false, v -> run[0].run()), Ui.weight1());
+        View gap = new View(this);
+        btns.addView(gap, Ui.lp(Ui.dp(this, 10), 1));
+        btns.addView(Ui.button(this, "بستن", true, v -> dlg.dismiss()), Ui.weight1());
+
+        List<Proxies.Proxy> list = new ArrayList<>(proxies);
+        Proxies.Probe[] results = new Proxies.Probe[list.size()];
+        int timeout = Prefs.of(this).timeoutSec();
+        run[0] = () -> {
+            java.util.Arrays.fill(results, null);
+            drawTest(list, results, big, bar, cards);
+            for (int k = 0; k < list.size(); k++) {
+                int idx = k;
+                new Thread(() -> {
+                    Proxies.Proxy p = list.get(idx);
+                    Proxies.Probe r = Proxies.probe(p, target, timeout);
+                    app.forapp.core.Trace.i("SETTINGS", "proxy test " + (idx + 1) + " " + p.typeLabel() + " " + p.hostPort() + ": "
+                            + (r.ok ? "OK in " + r.ms + "ms" : r.error));
+                    Db.get(this).setProxyLast(p.id, r.ok, r.ms, r.error);
+                    runOnUiThread(() -> {
+                        results[idx] = r;
+                        p.lastOk = r.ok;
+                        p.lastMs = r.ms;
+                        p.lastError = r.error;
+                        p.lastAt = System.currentTimeMillis();
+                        if (dlg.isShowing()) drawTest(list, results, big, bar, cards);
+                        renderProxies();
+                    });
+                }, "forapp-proxy-test").start();
+            }
+        };
+        dlg.show();
+        run[0].run();
+    }
+
+    private void drawTest(List<Proxies.Proxy> list, Proxies.Probe[] results, TextView big, LinearLayout bar, LinearLayout cards) {
+        int ok = 0;
+        for (Proxies.Probe r : results) if (r != null && r.ok) ok++;
+        big.setText(Fa.d(ok) + " از " + Fa.d(list.size()));
+        bar.removeAllViews();
+        cards.removeAllViews();
+        for (int i = 0; i < list.size(); i++) {
+            Proxies.Probe r = results[i];
+            View seg = new View(this);
+            seg.setBackgroundColor(Ui.color(this, r == null ? R.color.faint : r.ok ? R.color.fg : R.color.red));
+            LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(0, Ui.dp(this, 4), 1f);
+            if (i > 0) sp.setMarginStart(Ui.dp(this, 3));
+            bar.addView(seg, sp);
+
+            Proxies.Proxy p = list.get(i);
+            LinearLayout card = Ui.col(this);
+            Ui.pad(card, 12, 10, 12, 10);
+            card.setBackground(Ui.outline(this, r != null && !r.ok ? R.color.red : R.color.faint, 14, 1, false));
+            LinearLayout head = Ui.rowLayout(this);
+            head.addView(Ui.icon(this, r == null ? R.drawable.ic_retry : r.ok ? R.drawable.ic_ok : R.drawable.ic_fail,
+                    r != null && !r.ok ? R.color.red : r == null ? R.color.mid : R.color.fg, 16));
+            TextView addr = Ui.ellipsize(Ui.text(this, p.hostPort(), 12, R.color.fg, Ui.W_BOLD));
+            addr.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+            addr.setTextDirection(View.TEXT_DIRECTION_LTR);
+            addr.setGravity(Gravity.END);
+            Ui.pad(addr, 8, 0, 8, 0);
+            head.addView(addr, Ui.weight1());
+            head.addView(Ui.text(this, r == null ? "در حال تست…" : r.ok ? Fa.d(r.ms) + " میلی‌ثانیه" : "ناموفق", 12.5f,
+                    r == null ? R.color.mid : r.ok ? R.color.fg : R.color.red, r == null ? Ui.W_REGULAR : Ui.W_BLACK));
+            card.addView(head);
+            TextView meta = Ui.text(this, Fa.d(i + 1) + " · " + p.typeLabel(), 11, R.color.mid, Ui.W_REGULAR);
+            Ui.pad(meta, 24, 0, 0, 0);
+            card.addView(meta);
+            if (r != null && !r.ok && r.error != null) {
+                TextView err = Ui.text(this, r.error, 11.5f, R.color.red, Ui.W_REGULAR);
+                err.setTextDirection(View.TEXT_DIRECTION_LTR);
+                Ui.pad(err, 10, 5, 10, 5);
+                err.setBackground(Ui.fill(this, R.color.redbg, 8));
+                LinearLayout.LayoutParams ep = full();
+                ep.topMargin = Ui.dp(this, 6);
+                card.addView(err, ep);
+            }
+            LinearLayout.LayoutParams cp = full();
+            cp.topMargin = Ui.dp(this, 8);
+            cards.addView(card, cp);
+        }
     }
 
     // ---------- shared pieces ----------
@@ -608,6 +909,10 @@ public final class DestinationEditActivity extends BaseActivity {
         d.name = name.getText().toString().trim();
         if (d.name.isEmpty()) d.name = "مقصد";
         d.allBanks = allBanks.isChecked();
+        d.proxyOn = proxyOn.isChecked();
+        d.proxyDirect = proxyDirect.isChecked();
+        d.proxies = new ArrayList<>();
+        for (Proxies.Proxy p : proxies) d.proxies.add(p.copy());
         if (tg) {
             readTelegram(d);
             if (!Telegram.validToken(d.apiKey)) return fail(token, "توکن بات درست نیست؛ شکلش مثل 123456789:AAH… است");
@@ -663,8 +968,10 @@ public final class DestinationEditActivity extends BaseActivity {
                 .setPositiveButton("بستن", null).show();
         new Thread(() -> {
             Forwarder.Result r = Forwarder.test(this, d);
-            String msg = r.ok() ? (d.telegram() ? "✓ پیام آزمایشی در تلگرام فرستاده شد." : "✓ سرور پاسخ " + Fa.d(r.code) + " داد، در " + Fa.d(r.ms) + " میلی‌ثانیه. اتصال درست است.")
-                    : "✕ " + (r.error == null ? "ناموفق" : Fa.d(r.error)) + "\n" + advice(d, r.code);
+            String via = r.via == null ? "" : "\nاز " + r.via;
+            String msg = r.ok() ? (d.telegram() ? "✓ پیام آزمایشی در تلگرام فرستاده شد." : "✓ سرور پاسخ " + Fa.d(r.code) + " داد، در " + Fa.d(r.ms) + " میلی‌ثانیه. اتصال درست است.") + via
+                    : "✕ " + (r.error == null ? "ناموفق" : Fa.d(r.error)) + via + "\n" + advice(d, r.code);
+            runOnUiThread(this::renderProxies); // a send through the proxies updates their status
             runOnUiThread(() -> { if (dlg.isShowing()) dlg.setMessage(msg.trim()); });
         }).start();
     }
@@ -672,7 +979,7 @@ public final class DestinationEditActivity extends BaseActivity {
     private static String advice(Db.Dest d, int code) {
         if (!d.telegram()) return code == 401 || code == 403 ? "کلید API را بررسی کنید." : "";
         switch (code) {
-            case 0: return "به سرور تلگرام وصل نشد. VPN یا «سرور Bot API» را بررسی کنید.";
+            case 0: return "به سرور تلگرام وصل نشد. پروکسی‌ها یا «سرور Bot API» را بررسی کنید.";
             case 400: return "چت آیدی درست نیست، بات عضو آن چت نیست یا قالب متن ایراد دارد.";
             case 401: case 404: return "توکن بات درست نیست.";
             case 403: return "بات اجازه‌ی پیام دادن در این چت را ندارد (در کانال باید ادمین باشد).";
