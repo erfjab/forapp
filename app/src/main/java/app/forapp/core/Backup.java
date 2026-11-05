@@ -81,6 +81,13 @@ public final class Backup {
             j.putOpt("parse_mode", d.parseMode);
             j.put("proxy_on", d.proxyOn);
             j.put("proxy_direct", d.proxyDirect);
+            j.put("amount_on", d.amountOn);
+            j.putOpt("min_amount", d.minAmount);
+            j.putOpt("max_amount", d.maxAmount);
+            j.put("hours_on", d.hoursOn);
+            j.put("hour_from", d.hourFrom);
+            j.put("hour_to", d.hourTo);
+            j.put("days", d.days);
             JSONArray proxies = new JSONArray();
             for (Proxies.Proxy px : db.proxies(d.id)) proxies.put(px.url());
             j.put("proxies", proxies);
@@ -134,6 +141,14 @@ public final class Backup {
             d.parseMode = opt(j, "parse_mode");
             d.proxyOn = j.optBoolean("proxy_on", false);
             d.proxyDirect = j.optBoolean("proxy_direct", false);
+            // Filters; a file from before they existed takes everything.
+            d.amountOn = j.optBoolean("amount_on", false);
+            d.minAmount = amount(j, "min_amount");
+            d.maxAmount = amount(j, "max_amount");
+            d.hoursOn = j.optBoolean("hours_on", false);
+            d.hourFrom = minute(j, "hour_from", Filters.DEFAULT_FROM);
+            d.hourTo = minute(j, "hour_to", Filters.DEFAULT_TO);
+            d.days = j.optInt("days", Filters.ALL_DAYS) & Filters.ALL_DAYS;
             JSONArray proxies = j.optJSONArray("proxies");
             if (proxies != null) {
                 d.proxies = new ArrayList<>();
@@ -167,6 +182,19 @@ public final class Backup {
             if (j.has("retention_days")) p.retentionDays(j.optInt("retention_days", p.retentionDays()));
         }
         Forwarder.changed();
+    }
+
+    /** A positive amount in rial, or null for no limit (absent, empty or not a number). */
+    private static Long amount(JSONObject j, String key) {
+        if (!j.has(key) || j.isNull(key)) return null;
+        long v = j.optLong(key, -1);
+        return v >= 0 ? v : null;
+    }
+
+    /** A minute of the day (0–1439), or {@code def} when it is absent or out of range. */
+    private static int minute(JSONObject j, String key, int def) {
+        int v = j.optInt(key, def);
+        return v >= 0 && v < 1440 ? v : def;
     }
 
     private static String opt(JSONObject j, String key) {

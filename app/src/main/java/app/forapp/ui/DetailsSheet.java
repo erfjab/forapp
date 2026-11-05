@@ -96,6 +96,7 @@ final class DetailsSheet {
         amt.setTextDirection(View.TEXT_DIRECTION_LTR);
         amt.setIncludeFontPadding(false);
         amtRow.addView(amt);
+        amtRow.setAlpha(m.ignored() ? 0.45f : 1f);
         if (m.amount != null) {
             TextView unit = Ui.text(a, "ریال", 13, R.color.mid, Ui.W_BOLD);
             Ui.pad(unit, 8, 0, 0, 6);
@@ -121,10 +122,14 @@ final class DetailsSheet {
         content.addView(facts, cardLp(16));
 
         // Deliveries.
-        content.addView(section("ارسال به مقصدها", dels.isEmpty() ? null : Fa.d(m.sent) + " از " + Fa.d(dels.size()) + " رسید"));
-        if (m.skipped) content.addView(note("ارسال نشد، چون این پیامک واریز تشخیص داده نشد. می‌توانید دستی بفرستید."));
+        int counted = m.counted();
+        content.addView(section("ارسال به مقصدها", dels.isEmpty() ? null
+                : counted == 0 ? "رد شد با فیلتر مقصدها" : Fa.d(m.sent) + " از " + Fa.d(counted) + " رسید"));
+        if (m.ignored()) content.addView(note("این تراکنش را دستی نادیده گرفتید (" + Fa.full(m.ignoredAt, tz)
+                + "). به هیچ مقصدی فرستاده نمی‌شود و دیگر برایش تلاش نمی‌شود."));
+        else if (m.skipped) content.addView(note("ارسال نشد، چون این پیامک واریز تشخیص داده نشد. می‌توانید دستی بفرستید."));
         else if (dels.isEmpty()) content.addView(note("هیچ مقصد فعالی پیامک این بانک را نمی‌گیرد."));
-        for (Db.Delivery d : dels) content.addView(delivery(d), cardLp(8));
+        for (Db.Delivery d : dels) content.addView(delivery(d, m.ignored()), cardLp(8));
 
         // SMS text.
         content.addView(section("متن پیامک", null));
@@ -142,7 +147,20 @@ final class DetailsSheet {
             a.getSystemService(ClipboardManager.class).setPrimaryClip(ClipData.newPlainText("sms", m.body));
             Ui.toast(a, "کپی شد");
         }), Ui.weight1());
-        if (m.skipped || m.failed > 0) {
+        if (m.ignored()) {
+            View sp = new View(a);
+            actions.addView(sp, Ui.lp(Ui.dp(a, 10), 1));
+            actions.addView(Ui.button(a, "برگرداندن", false, v -> io.execute(() -> {
+                Db.get(a).restore(m.id);
+                if (m.skipped) {
+                    Forwarder.changed();
+                    return;
+                }
+                List<Long> ids = new ArrayList<>();
+                ids.add(m.id);
+                Forwarder.sendNow(a, ids, 15_000);
+            })), Ui.weight1());
+        } else if (m.skipped || m.failed > 0) {
             View sp = new View(a);
             actions.addView(sp, Ui.lp(Ui.dp(a, 10), 1));
             actions.addView(Ui.button(a, m.skipped ? "ارسال دستی" : "ارسال دوباره همه", true, v -> io.execute(() -> {
@@ -153,15 +171,33 @@ final class DetailsSheet {
             })), Ui.weight1());
         }
         content.addView(actions);
+
+        // Ignore: nothing of this transaction is sent or tried again, until it is brought back.
+        if (!m.ignored() && (m.skipped || m.pending > 0 || m.failed > 0 || m.filtered > 0)) {
+            TextView ignore = Ui.text(a, "نادیده گرفتن این تراکنش", 14, R.color.red, Ui.W_BOLD);
+            ignore.setGravity(Gravity.CENTER);
+            Ui.pad(ignore, 12, 16, 12, 4);
+            ignore.setOnClickListener(v -> Ui.confirm(a, "نادیده گرفتن تراکنش",
+                    "این تراکنش" + (m.amount == null ? "" : " " + Fa.group(m.amount) + " ریالی")
+                            + " به هیچ مقصدی فرستاده نمی‌شود و دیگر برایش تلاش نمی‌شود. بعداً می‌توانید آن را برگردانید.",
+                    "نادیده بگیر", () -> io.execute(() -> {
+                        Db.get(a).ignore(m.id);
+                        Forwarder.schedule(a);
+                        Forwarder.changed();
+                    })));
+            content.addView(ignore, cardLp(0));
+        }
     }
 
     private View statusPill(Db.Msg m) {
         String s;
         int fg, bg, icon;
-        if (m.skipped) { s = "ارسال نشد"; fg = R.color.mid; bg = R.color.line; icon = R.drawable.ic_dash; }
+        if (m.ignored()) { s = "نادیده گرفته شد"; fg = R.color.mid; bg = R.color.line; icon = R.drawable.ic_dash; }
+        else if (m.skipped) { s = "ارسال نشد"; fg = R.color.mid; bg = R.color.line; icon = R.drawable.ic_dash; }
         else if (m.total == 0) { s = "بدون مقصد"; fg = R.color.mid; bg = R.color.line; icon = R.drawable.ic_dash; }
         else if (m.failed > 0) { s = "ناموفق"; fg = R.color.red; bg = R.color.redbg; icon = R.drawable.ic_fail; }
         else if (m.pending > 0) { s = "در صف ارسال"; fg = R.color.fg; bg = R.color.line; icon = R.drawable.ic_retry; }
+        else if (m.sent == 0) { s = "رد شد"; fg = R.color.mid; bg = R.color.line; icon = R.drawable.ic_dash; }
         else { s = "رسید"; fg = R.color.bg; bg = R.color.fg; icon = R.drawable.ic_ok; }
         LinearLayout p = Ui.rowLayout(a);
         Ui.pad(p, 10, 4, 12, 4);
@@ -173,11 +209,19 @@ final class DetailsSheet {
         return p;
     }
 
-    private View delivery(Db.Delivery d) {
+    private View delivery(Db.Delivery d, boolean msgIgnored) {
         boolean busy = d.status == Db.SENDING || sending.contains(d.id);
         String st, meta;
         int col, icon;
         switch (d.status) {
+            case Db.FILTERED:
+                st = "رد شد"; col = R.color.mid; icon = R.drawable.ic_dash;
+                meta = d.error == null ? "با فیلترهای این مقصد" : Fa.d(d.error);
+                break;
+            case Db.IGNORED:
+                st = "نادیده"; col = R.color.mid; icon = R.drawable.ic_dash;
+                meta = d.attempts > 0 ? "پیش از آن " + Fa.d(d.attempts) + " تلاش" : "";
+                break;
             case Db.SENT:
                 st = "رسید"; col = R.color.fg; icon = R.drawable.ic_ok;
                 meta = Fa.time(d.updatedAt, tz) + (d.via == null ? "" : " · از " + d.via);
@@ -224,7 +268,7 @@ final class DetailsSheet {
             c.addView(mt);
         }
         if (d.trail != null && !d.trail.isEmpty()) c.addView(trail(d.trail));
-        if (d.error != null && d.status != Db.SENT) {
+        if (d.error != null && d.status != Db.SENT && d.status != Db.FILTERED && d.status != Db.IGNORED) {
             TextView err = Ui.text(a, Fa.d(d.error), 12, R.color.red, Ui.W_REGULAR);
             err.setTextIsSelectable(true);
             err.setLineSpacing(0, 1.2f);
@@ -238,7 +282,7 @@ final class DetailsSheet {
         Ui.pad(req, 26, 8, 0, 2);
         req.setOnClickListener(v -> showRequest(d));
         c.addView(req);
-        if (d.status == Db.PENDING || d.status == Db.FAILED) {
+        if (!msgIgnored && (d.status == Db.PENDING || d.status == Db.FAILED || d.status == Db.FILTERED)) {
             TextView b = Ui.button(a, busy ? "در حال ارسال…" : "ارسال الان", false, v -> sendNow(d));
             b.setTextSize(13);
             Ui.pad(b, 12, 8, 12, 8);

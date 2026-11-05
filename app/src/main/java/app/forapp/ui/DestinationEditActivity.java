@@ -28,6 +28,7 @@ import java.util.Set;
 import app.forapp.R;
 import app.forapp.core.Db;
 import app.forapp.core.Fa;
+import app.forapp.core.Filters;
 import app.forapp.core.Forwarder;
 import app.forapp.core.Prefs;
 import app.forapp.core.Proxies;
@@ -112,6 +113,7 @@ public final class DestinationEditActivity extends BaseActivity {
         banksLink.setOnClickListener(v -> startActivity(new Intent(this, BanksActivity.class)));
         f.addView(banksLink);
         refreshBanks();
+        buildFilters(f);
 
         webhookBottom = Ui.col(this);
         telegramBottom = Ui.col(this);
@@ -757,6 +759,234 @@ public final class DestinationEditActivity extends BaseActivity {
         }
     }
 
+    // ---------- filters ----------
+
+    private Switch amountSw, hoursSw;
+    private EditText minEd, maxEd;
+    private int hourFrom, hourTo, days;
+    private LinearLayout amountBox, hoursBox, dayChips;
+    private TextView amountSub, amountHint, hoursSub, hoursHint, fromTv, toTv, summaryTv, clearLink;
+
+    /** Amount range, hours and days of the week; a transaction outside them is left out for this destination. */
+    private void buildFilters(LinearLayout f) {
+        hourFrom = dest.hourFrom;
+        hourTo = dest.hourTo;
+        days = dest.days & Filters.ALL_DAYS;
+        f.addView(Ui.section(this, "فیلترها"));
+        TextView intro = hint("فقط تراکنش‌هایی که همه‌ی شرط‌ها را دارند به این مقصد می‌روند. بقیه برای این مقصد «رد شد» می‌خورند و می‌شود دستی فرستادشان.");
+        Ui.pad(intro, 20, 0, 20, 10);
+        f.addView(intro);
+
+        // amount
+        f.addView(Ui.hairline(this, R.color.line));
+        amountSw = Ui.toggle(this, dest.amountOn);
+        LinearLayout amountRow = Ui.row(this, "فقط مبلغ‌های مشخص", "", amountSw);
+        amountSub = (TextView) ((LinearLayout) amountRow.getChildAt(0)).getChildAt(1);
+        amountRow.setOnClickListener(v -> amountSw.toggle());
+        f.addView(amountRow);
+        amountBox = Ui.rowLayout(this);
+        amountBox.setGravity(Gravity.TOP);
+        Ui.pad(amountBox, 20, 0, 20, 0);
+        minEd = moneyEdit(dest.minAmount);
+        maxEd = moneyEdit(dest.maxAmount);
+        amountBox.addView(moneyField("حداقل مبلغ", minEd), Ui.weight1());
+        View sep = new View(this);
+        amountBox.addView(sep, Ui.lp(Ui.dp(this, 16), 1));
+        amountBox.addView(moneyField("حداکثر مبلغ", maxEd), Ui.weight1());
+        f.addView(amountBox, full());
+        amountHint = hint("");
+        f.addView(amountHint);
+
+        // hours
+        View gap = new View(this);
+        f.addView(gap, Ui.lp(1, Ui.dp(this, 10)));
+        f.addView(Ui.hairline(this, R.color.line));
+        hoursSw = Ui.toggle(this, dest.hoursOn);
+        LinearLayout hoursRow = Ui.row(this, "فقط در ساعت‌های مشخص", "", hoursSw);
+        hoursSub = (TextView) ((LinearLayout) hoursRow.getChildAt(0)).getChildAt(1);
+        hoursRow.setOnClickListener(v -> hoursSw.toggle());
+        f.addView(hoursRow);
+        hoursBox = Ui.rowLayout(this);
+        Ui.pad(hoursBox, 20, 0, 20, 0);
+        fromTv = timeText();
+        toTv = timeText();
+        hoursBox.addView(timeField("از ساعت", fromTv, true), Ui.weight1());
+        View sep2 = new View(this);
+        hoursBox.addView(sep2, Ui.lp(Ui.dp(this, 16), 1));
+        hoursBox.addView(timeField("تا ساعت", toTv, false), Ui.weight1());
+        f.addView(hoursBox, full());
+        hoursHint = hint("");
+        f.addView(hoursHint);
+
+        // days
+        TextView daysLabel = label("روزهای هفته");
+        Ui.pad(daysLabel, 20, 18, 20, 6);
+        f.addView(daysLabel);
+        dayChips = Ui.rowLayout(this);
+        Ui.pad(dayChips, 20, 0, 20, 0);
+        f.addView(dayChips, full());
+
+        // summary
+        LinearLayout sum = Ui.col(this);
+        Ui.pad(sum, 14, 10, 14, 10);
+        sum.setBackground(Ui.fill(this, R.color.line, 12));
+        sum.addView(Ui.text(this, "خلاصه", 11, R.color.mid, Ui.W_BOLD));
+        summaryTv = Ui.text(this, "", 13, R.color.fg, Ui.W_REGULAR);
+        summaryTv.setLineSpacing(0, 1.2f);
+        sum.addView(summaryTv);
+        LinearLayout.LayoutParams sp = full();
+        sp.setMargins(Ui.dp(this, 20), Ui.dp(this, 16), Ui.dp(this, 20), 0);
+        f.addView(sum, sp);
+        clearLink = link("برداشتن همه‌ی فیلترها");
+        clearLink.setOnClickListener(v -> {
+            amountSw.setChecked(false);
+            hoursSw.setChecked(false);
+            minEd.setText("");
+            maxEd.setText("");
+            days = Filters.ALL_DAYS;
+            renderFilters();
+        });
+        f.addView(clearLink);
+
+        amountSw.setOnCheckedChangeListener((v, c) -> renderFilters());
+        hoursSw.setOnCheckedChangeListener((v, c) -> renderFilters());
+        minEd.addTextChangedListener(watch(this::renderFilters));
+        maxEd.addTextChangedListener(watch(this::renderFilters));
+        renderFilters();
+    }
+
+    /** A whole number of rial; empty means no limit. Digits only, at most 15 of them. */
+    private EditText moneyEdit(Long value) {
+        EditText e = new EditText(this);
+        e.setText(value == null ? "" : String.valueOf(value));
+        e.setHint("بی‌حد");
+        e.setInputType(InputType.TYPE_CLASS_NUMBER);
+        e.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(15)});
+        e.setSingleLine(true);
+        e.setTextSize(15);
+        e.setTypeface(Ui.font(this, Ui.W_BOLD));
+        e.setTextColor(Ui.color(this, R.color.fg));
+        e.setHintTextColor(Ui.color(this, R.color.mid));
+        e.setBackgroundTintList(ColorStateList.valueOf(Ui.color(this, R.color.fg)));
+        e.setTextDirection(View.TEXT_DIRECTION_LTR);
+        e.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
+        return e;
+    }
+
+    private View moneyField(String title, EditText e) {
+        LinearLayout box = Ui.col(this);
+        Ui.pad(box, 0, 4, 0, 0);
+        box.addView(Ui.text(this, title, 11, R.color.mid, Ui.W_BOLD));
+        LinearLayout r = Ui.rowLayout(this);
+        r.addView(e, Ui.weight1());
+        TextView unit = Ui.text(this, "ریال", 11, R.color.mid, Ui.W_REGULAR);
+        Ui.pad(unit, 6, 0, 0, 0);
+        r.addView(unit);
+        box.addView(r, full());
+        return box;
+    }
+
+    private TextView timeText() {
+        TextView t = Ui.text(this, "", 15, R.color.fg, Ui.W_BOLD);
+        Ui.pad(t, 8, 0, 0, 0);
+        return t;
+    }
+
+    /** A clock time that opens the system time picker, underlined like the other fields. */
+    private View timeField(String title, TextView value, boolean from) {
+        LinearLayout box = Ui.col(this);
+        Ui.pad(box, 0, 4, 0, 0);
+        box.addView(Ui.text(this, title, 11, R.color.mid, Ui.W_BOLD));
+        LinearLayout r = Ui.rowLayout(this);
+        Ui.pad(r, 4, 10, 4, 8);
+        r.addView(Ui.icon(this, R.drawable.ic_clock, R.color.fg, 16));
+        r.addView(value, Ui.weight1());
+        box.addView(r, full());
+        View line = new View(this);
+        line.setBackgroundColor(Ui.color(this, R.color.fg));
+        box.addView(line, Ui.lp(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 1.5f)));
+        box.setOnClickListener(v -> {
+            if (!hoursSw.isChecked()) return;
+            int cur = from ? hourFrom : hourTo;
+            android.app.TimePickerDialog dlg = new android.app.TimePickerDialog(this, (tp, h, m) -> {
+                if (from) hourFrom = h * 60 + m;
+                else hourTo = h * 60 + m;
+                renderFilters();
+            }, cur / 60, cur % 60, true);
+            dlg.setTitle(title);
+            dlg.show();
+            Ui.grayCancel(dlg);
+        });
+        return box;
+    }
+
+    private void renderFilters() {
+        boolean aOn = amountSw.isChecked(), hOn = hoursSw.isChecked();
+        amountSub.setText(aOn ? "هر کدام خالی بماند یعنی بی‌حد" : "خاموش یعنی هر مبلغی");
+        amountBox.setAlpha(aOn ? 1f : 0.35f);
+        minEd.setEnabled(aOn);
+        maxEd.setEnabled(aOn);
+        Long min = amountOf(minEd), max = amountOf(maxEd);
+        boolean bad = aOn && min != null && max != null && min > max;
+        String range = Filters.amountText(min, max);
+        amountHint.setText(bad ? "حداقل از حداکثر بیشتر است" : !aOn || range == null ? "هر مبلغی" : range);
+        amountHint.setTextColor(Ui.color(this, bad ? R.color.red : R.color.mid));
+
+        hoursSub.setText(hOn ? "بر اساس زمان رسیدن پیامک" : "خاموش یعنی همه‌ی ساعت‌ها");
+        hoursBox.setAlpha(hOn ? 1f : 0.35f);
+        fromTv.setText(Filters.clock(hourFrom));
+        toTv.setText(Filters.clock(hourTo));
+        hoursHint.setText(!hOn ? "اگر «تا» زودتر از «از» باشد، یعنی از شب تا صبح فردا."
+                : hourFrom == hourTo ? "«از» و «تا» یکی است، یعنی همه‌ی ساعت‌ها."
+                : hourFrom > hourTo ? "از ساعت " + Filters.clock(hourFrom) + " تا " + Filters.clock(hourTo) + " صبح فردا"
+                : "از ساعت " + Filters.clock(hourFrom) + " تا " + Filters.clock(hourTo));
+
+        dayChips.removeAllViews();
+        for (int i = 0; i < 7; i++) {
+            int bit = 1 << i;
+            boolean on = (days & bit) != 0;
+            TextView t = Ui.text(this, Filters.DAY_SHORT[i], 12.5f, on ? R.color.bg : R.color.fg, Ui.W_BOLD);
+            t.setGravity(Gravity.CENTER);
+            Ui.pad(t, 0, 5, 0, 5);
+            t.setBackground(on ? Ui.fill(this, R.color.fg, 99) : Ui.outline(this, R.color.faint, 99, 1, false));
+            t.setContentDescription(Filters.DAY_NAMES[i]);
+            t.setOnClickListener(v -> {
+                days ^= bit;
+                renderFilters();
+            });
+            LinearLayout.LayoutParams p = Ui.weight1();
+            if (i > 0) p.setMarginStart(Ui.dp(this, 6));
+            dayChips.addView(t, p);
+        }
+
+        Db.Dest d = new Db.Dest();
+        readFilters(d);
+        String s = Filters.summary(d);
+        summaryTv.setText(s == null ? "بدون فیلتر · همه‌ی تراکنش‌ها" : s);
+        summaryTv.setTextColor(Ui.color(this, days == 0 || bad ? R.color.red : R.color.fg));
+        clearLink.setVisibility(aOn || hOn || days != Filters.ALL_DAYS || min != null || max != null ? View.VISIBLE : View.GONE);
+    }
+
+    private static Long amountOf(EditText e) {
+        String s = Fa.ascii(e.getText().toString()).replaceAll("[^0-9]", "");
+        if (s.isEmpty()) return null;
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException x) {
+            return null;
+        }
+    }
+
+    private void readFilters(Db.Dest d) {
+        d.amountOn = amountSw.isChecked();
+        d.minAmount = amountOf(minEd);
+        d.maxAmount = amountOf(maxEd);
+        d.hoursOn = hoursSw.isChecked();
+        d.hourFrom = hourFrom;
+        d.hourTo = hourTo;
+        d.days = days;
+    }
+
     // ---------- shared pieces ----------
 
     /** A hidden text field (API key, bot token) with a show/hide link under it. */
@@ -913,6 +1143,9 @@ public final class DestinationEditActivity extends BaseActivity {
         d.proxyDirect = proxyDirect.isChecked();
         d.proxies = new ArrayList<>();
         for (Proxies.Proxy p : proxies) d.proxies.add(p.copy());
+        readFilters(d);
+        if (d.amountOn && d.minAmount != null && d.maxAmount != null && d.minAmount > d.maxAmount)
+            return fail(maxEd, "حداکثر باید از حداقل بیشتر باشد");
         if (tg) {
             readTelegram(d);
             if (!Telegram.validToken(d.apiKey)) return fail(token, "توکن بات درست نیست؛ شکلش مثل 123456789:AAH… است");
@@ -956,6 +1189,8 @@ public final class DestinationEditActivity extends BaseActivity {
                     "با همین ذخیره کن", doSave);
         } else if (!d.allBanks && sel.isEmpty()) {
             Ui.confirm(this, "هیچ بانکی انتخاب نشده", "تا یک بانک انتخاب نکنید، پیامکی به این مقصد نمی‌رود.", "با همین ذخیره کن", doSave);
+        } else if ((d.days & Filters.ALL_DAYS) == 0) {
+            Ui.confirm(this, "هیچ روزی انتخاب نشده", "تا یک روز هفته انتخاب نکنید، همه‌ی تراکنش‌ها برای این مقصد «رد شد» می‌خورند.", "با همین ذخیره کن", doSave);
         } else {
             doSave.run();
         }

@@ -19,6 +19,7 @@ import java.util.TimeZone;
 import app.forapp.R;
 import app.forapp.core.Db;
 import app.forapp.core.Fa;
+import app.forapp.core.Filters;
 
 /** Every webhook the SMS can go to. One SMS goes to all destinations that take its bank. */
 public final class DestinationsActivity extends BaseActivity {
@@ -104,11 +105,18 @@ public final class DestinationsActivity extends BaseActivity {
                 banks = none ? "هیچ بانکی انتخاب نشده" : s.toString();
             }
             box.addView(Ui.text(this, banks, 12, none ? R.color.red : R.color.fg, Ui.W_BOLD));
+            String filters = Filters.summary(d);
+            if (filters != null) {
+                TextView ft = Ui.text(this, "فیلتر: " + filters, 11.5f, (d.days & Filters.ALL_DAYS) == 0 ? R.color.red : R.color.fg, Ui.W_REGULAR);
+                Ui.pad(ft, 0, 3, 0, 0);
+                box.addView(ft);
+            }
 
             LinearLayout stat = Ui.rowLayout(this);
             Ui.pad(stat, 0, 6, 0, 0);
             int[] s = db.destStats(d.id, today);
-            stat.addView(Ui.text(this, d.enabled ? "امروز " + Fa.d(s[0]) + " واریز" + (s[1] > 0 ? " · " + Fa.d(s[1]) + " ناموفق" : "") : "غیرفعال",
+            stat.addView(Ui.text(this, d.enabled ? "امروز " + Fa.d(s[0]) + " واریز" + (s[2] > 0 ? " · " + Fa.d(s[2]) + " رد شد" : "")
+                            + (s[1] > 0 ? " · " + Fa.d(s[1]) + " ناموفق" : "") : "غیرفعال",
                     11.5f, s[1] > 0 ? R.color.red : R.color.mid, Ui.W_REGULAR), Ui.weight1());
             if (d.lastCode != null) {
                 boolean ok = d.lastCode >= 200 && d.lastCode < 300;

@@ -17,6 +17,8 @@ import java.util.Set;
 public final class Db extends SQLiteOpenHelper {
 
     public static final int PENDING = 0, SENT = 1, FAILED = 2, SENDING = 3;
+    /** Left out by the destination's filters (the reason is in error), or ignored by hand; neither is sent unless asked. */
+    public static final int FILTERED = 4, IGNORED = 5;
     /** A delivery stuck in SENDING longer than this (process killed mid-request) is retried. */
     public static final long STALE_SENDING_MS = 2 * 60 * 1000;
 
@@ -28,7 +30,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private Db(Context c) {
-        super(c, "forapp.db", null, 5);
+        super(c, "forapp.db", null, 6);
         setWriteAheadLoggingEnabled(true);
     }
 
@@ -38,12 +40,12 @@ public final class Db extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE dests(id INTEGER PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, api_key TEXT NOT NULL DEFAULT '',"
                 + " enabled INTEGER NOT NULL DEFAULT 1, all_banks INTEGER NOT NULL DEFAULT 1, last_code INTEGER, last_ms INTEGER, last_at INTEGER,"
                 + " method TEXT, headers TEXT, body_type TEXT, body_tpl TEXT, kind TEXT, chat_id TEXT, parse_mode TEXT,"
-                + " proxy_on INTEGER NOT NULL DEFAULT 0, proxy_direct INTEGER NOT NULL DEFAULT 0)");
+                + " proxy_on INTEGER NOT NULL DEFAULT 0, proxy_direct INTEGER NOT NULL DEFAULT 0, " + FILTER_COLS_DDL + ")");
         createProxies(db);
         db.execSQL("CREATE TABLE dest_banks(dest_id INTEGER NOT NULL, bank_id INTEGER NOT NULL, PRIMARY KEY(dest_id, bank_id))");
         db.execSQL("CREATE TABLE msgs(id INTEGER PRIMARY KEY, uid TEXT NOT NULL, fp TEXT NOT NULL UNIQUE, sender TEXT NOT NULL,"
                 + " bank_id INTEGER, bank TEXT, body TEXT NOT NULL, amount INTEGER, unit TEXT, deposit INTEGER,"
-                + " skipped INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL)");
+                + " skipped INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, ignored_at INTEGER)");
         db.execSQL("CREATE INDEX msgs_at ON msgs(at)");
         db.execSQL("CREATE TABLE dels(id INTEGER PRIMARY KEY, msg_id INTEGER NOT NULL, dest_id INTEGER NOT NULL, dest TEXT NOT NULL,"
                 + " status INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, next_at INTEGER NOT NULL DEFAULT 0,"
@@ -70,7 +72,17 @@ public final class Db extends SQLiteOpenHelper {
             for (String col : new String[]{"via", "trail"}) db.execSQL("ALTER TABLE dels ADD COLUMN " + col + " TEXT");
             createProxies(db);
         }
+        if (oldV < 6) {
+            // v6: filters per destination (amount, hours, days), and messages ignored by hand
+            for (String col : FILTER_COLS_DDL.split(", ")) db.execSQL("ALTER TABLE dests ADD COLUMN " + col);
+            db.execSQL("ALTER TABLE msgs ADD COLUMN ignored_at INTEGER");
+        }
     }
+
+    /** Amounts in rial (NULL = no limit), hours as minutes of the day, days as Saturday-first bits; see {@link Filters}. */
+    private static final String FILTER_COLS_DDL = "amount_on INTEGER NOT NULL DEFAULT 0, min_amount INTEGER, max_amount INTEGER, "
+            + "hours_on INTEGER NOT NULL DEFAULT 0, hour_from INTEGER NOT NULL DEFAULT " + Filters.DEFAULT_FROM + ", "
+            + "hour_to INTEGER NOT NULL DEFAULT " + Filters.DEFAULT_TO + ", days INTEGER NOT NULL DEFAULT " + Filters.ALL_DAYS;
 
     private static void createProxies(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE proxies(id INTEGER PRIMARY KEY, dest_id INTEGER NOT NULL, pos INTEGER NOT NULL, type TEXT NOT NULL,"
@@ -100,7 +112,7 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private static final String DEST_COLS = "id, name, url, api_key, enabled, all_banks, last_code, last_ms, last_at, method, headers, body_type, body_tpl,"
-            + " kind, chat_id, parse_mode, proxy_on, proxy_direct";
+            + " kind, chat_id, parse_mode, proxy_on, proxy_direct, amount_on, min_amount, max_amount, hours_on, hour_from, hour_to, days";
 
     // ---------- models ----------
 
@@ -141,6 +153,11 @@ public final class Db extends SQLiteOpenHelper {
         /** Set when the destination's proxies should be saved with it; null leaves the stored ones alone. */
         public List<Proxies.Proxy> proxies;
 
+        // Filters: which transactions this destination takes. The values stay when a switch is off. See {@link Filters}.
+        public boolean amountOn, hoursOn;
+        public Long minAmount, maxAmount;
+        public int hourFrom = Filters.DEFAULT_FROM, hourTo = Filters.DEFAULT_TO, days = Filters.ALL_DAYS;
+
         public boolean telegram() { return Telegram.KIND.equals(kind); }
         public String parseMode() { return parseMode == null ? Telegram.MARKDOWN : parseMode; }
         public String template() { return bodyTpl == null ? Telegram.DEFAULT_TEMPLATE : bodyTpl; }
@@ -156,9 +173,16 @@ public final class Db extends SQLiteOpenHelper {
         public Boolean deposit;
         public boolean skipped;
         public long at;
+        /** When it was ignored by hand; 0 when it was not. */
+        public long ignoredAt;
         // aggregated delivery state, filled by log()
-        public int total, sent, failed, pending;
-        public String dests = "", failedDests = ""; // every destination, and only the ones that failed
+        public int total, sent, failed, pending, filtered;
+        public String dests = "", failedDests = ""; // destinations not left out by filters, and only the ones that failed
+
+        public boolean ignored() { return ignoredAt > 0; }
+
+        /** Deliveries not left out by a destination's filters. */
+        public int counted() { return total - filtered; }
     }
 
     public static final class Delivery {
@@ -283,6 +307,13 @@ public final class Db extends SQLiteOpenHelper {
         d.parseMode = c.getString(15);
         d.proxyOn = c.getInt(16) == 1;
         d.proxyDirect = c.getInt(17) == 1;
+        d.amountOn = c.getInt(18) == 1;
+        d.minAmount = c.isNull(19) ? null : c.getLong(19);
+        d.maxAmount = c.isNull(20) ? null : c.getLong(20);
+        d.hoursOn = c.getInt(21) == 1;
+        d.hourFrom = c.getInt(22);
+        d.hourTo = c.getInt(23);
+        d.days = c.getInt(24);
         return d;
     }
 
@@ -296,7 +327,10 @@ public final class Db extends SQLiteOpenHelper {
 
     public long saveDest(Dest d, Set<Long> bankIds) {
         Trace.i("SETTINGS", "destination " + (d.id == 0 ? "added" : "saved") + ": " + d.name + " · " + Trace.host(d.url)
-                + (d.enabled ? "" : " (off)") + (d.allBanks ? " · all banks" : " · banks " + bankIds));
+                + (d.enabled ? "" : " (off)") + (d.allBanks ? " · all banks" : " · banks " + bankIds)
+                + " · filters: amount " + (Filters.amountActive(d) ? d.minAmount + ".." + d.maxAmount : "any")
+                + ", hours " + (Filters.hoursActive(d) ? d.hourFrom + ".." + d.hourTo : "any")
+                + ", days " + (Filters.daysActive(d) ? Integer.toBinaryString(d.days) : "all"));
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
@@ -315,6 +349,15 @@ public final class Db extends SQLiteOpenHelper {
             v.put("parse_mode", d.parseMode);
             v.put("proxy_on", d.proxyOn ? 1 : 0);
             v.put("proxy_direct", d.proxyDirect ? 1 : 0);
+            v.put("amount_on", d.amountOn ? 1 : 0);
+            if (d.minAmount == null) v.putNull("min_amount");
+            else v.put("min_amount", d.minAmount);
+            if (d.maxAmount == null) v.putNull("max_amount");
+            else v.put("max_amount", d.maxAmount);
+            v.put("hours_on", d.hoursOn ? 1 : 0);
+            v.put("hour_from", d.hourFrom);
+            v.put("hour_to", d.hourTo);
+            v.put("days", d.days & Filters.ALL_DAYS);
             if (d.id == 0) d.id = db.insert("dests", null, v);
             else db.update("dests", v, "id=?", args(d.id));
             if (d.proxies != null) saveProxies(db, d.id, d.proxies);
@@ -449,7 +492,7 @@ public final class Db extends SQLiteOpenHelper {
             long id = db.insertWithOnConflict("msgs", null, v, SQLiteDatabase.CONFLICT_IGNORE);
             if (id == -1) return -1;
             m.id = id;
-            if (!m.skipped) addDeliveries(db, id, to);
+            if (!m.skipped) addDeliveries(db, m, to);
             db.setTransactionSuccessful();
             return id;
         } finally {
@@ -457,14 +500,19 @@ public final class Db extends SQLiteOpenHelper {
         }
     }
 
-    private static void addDeliveries(SQLiteDatabase db, long msgId, List<Dest> to) {
+    /** One delivery per destination; one whose filters leave the message out gets a FILTERED delivery with the reason. */
+    private static void addDeliveries(SQLiteDatabase db, Msg m, List<Dest> to) {
         long now = System.currentTimeMillis();
+        java.util.TimeZone tz = java.util.TimeZone.getDefault();
         for (Dest d : to) {
+            String reason = Filters.reject(d, m.amount, m.at, tz);
+            if (reason != null) Trace.i("SEND", "message #" + m.id + " → " + d.name + ": left out by its filters · " + reason);
             ContentValues v = new ContentValues();
-            v.put("msg_id", msgId);
+            v.put("msg_id", m.id);
             v.put("dest_id", d.id);
             v.put("dest", d.name);
-            v.put("status", PENDING);
+            v.put("status", reason == null ? PENDING : FILTERED);
+            if (reason != null) v.put("error", reason);
             v.put("next_at", now);
             v.put("updated_at", now);
             db.insertWithOnConflict("dels", null, v, SQLiteDatabase.CONFLICT_IGNORE);
@@ -481,7 +529,7 @@ public final class Db extends SQLiteOpenHelper {
                 ContentValues v = new ContentValues();
                 v.put("skipped", 0);
                 db.update("msgs", v, "id=?", args(m.id));
-                addDeliveries(db, m.id, m.bankId == null ? new ArrayList<>() : destsForBank(m.bankId));
+                addDeliveries(db, m, m.bankId == null ? new ArrayList<>() : destsForBank(m.bankId));
             }
             ContentValues v = new ContentValues();
             v.put("status", PENDING);
@@ -501,7 +549,8 @@ public final class Db extends SQLiteOpenHelper {
     }
 
     private static final String MSG_SELECT = "SELECT m.id, m.uid, m.sender, m.bank_id, m.bank, m.body, m.amount, m.unit, m.deposit, m.skipped, m.at,"
-            + " COUNT(d.id), SUM(d.status=1), SUM(d.status=2), SUM(d.status IN (0,3)), GROUP_CONCAT(d.dest, '، '), GROUP_CONCAT(CASE WHEN d.status=2 THEN d.dest END, '، ')"
+            + " COUNT(d.id), SUM(d.status=1), SUM(d.status=2), SUM(d.status IN (0,3)), GROUP_CONCAT(CASE WHEN d.status<>4 THEN d.dest END, '، '),"
+            + " GROUP_CONCAT(CASE WHEN d.status=2 THEN d.dest END, '، '), SUM(d.status=4), m.ignored_at"
             + " FROM msgs m LEFT JOIN dels d ON d.msg_id = m.id";
 
     private static Msg readMsg(Cursor c) {
@@ -523,13 +572,15 @@ public final class Db extends SQLiteOpenHelper {
         m.pending = c.getInt(14);
         m.dests = c.isNull(15) ? "" : c.getString(15);
         m.failedDests = c.isNull(16) ? "" : c.getString(16);
+        m.filtered = c.getInt(17);
+        m.ignoredAt = c.isNull(18) ? 0 : c.getLong(18);
         return m;
     }
 
     /** Newest first. Optionally only messages that went (or are going) to one destination. */
     public List<Msg> log(long destId, int limit) {
         List<Msg> l = new ArrayList<>();
-        String where = destId > 0 ? " WHERE m.id IN (SELECT msg_id FROM dels WHERE dest_id=" + destId + ")" : "";
+        String where = destId > 0 ? " WHERE m.id IN (SELECT msg_id FROM dels WHERE dest_id=" + destId + " AND status<>" + FILTERED + ")" : "";
         try (Cursor c = getReadableDatabase().rawQuery(MSG_SELECT + where + " GROUP BY m.id ORDER BY m.at DESC LIMIT " + limit, null)) {
             while (c.moveToNext()) l.add(readMsg(c));
         }
@@ -620,7 +671,50 @@ public final class Db extends SQLiteOpenHelper {
         else v.put("code", code);
         v.put("error", error);
         v.put("updated_at", System.currentTimeMillis());
-        getWritableDatabase().update("dels", v, "id=?", args(id));
+        // A message ignored while this delivery was on its way stays ignored, unless the send actually got through.
+        getWritableDatabase().update("dels", v, status == SENT ? "id=?" : "id=? AND status<>" + IGNORED, args(id));
+    }
+
+    /** Ignores a message by hand: nothing of it is sent or tried again. Deliveries already sent or left out by filters stay as they are. */
+    public void ignore(long msgId) {
+        Trace.i("SEND", "message #" + msgId + " ignored by hand");
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            long now = System.currentTimeMillis();
+            ContentValues m = new ContentValues();
+            m.put("ignored_at", now);
+            db.update("msgs", m, "id=?", args(msgId));
+            ContentValues v = new ContentValues();
+            v.put("status", IGNORED);
+            v.put("updated_at", now);
+            db.update("dels", v, "msg_id=? AND status IN (0,2,3)", args(msgId));
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    /** Undoes {@link #ignore}: its ignored deliveries go back in the queue, due now, with a fresh count of tries. */
+    public void restore(long msgId) {
+        Trace.i("SEND", "message #" + msgId + " no longer ignored; queued again");
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            long now = System.currentTimeMillis();
+            ContentValues m = new ContentValues();
+            m.putNull("ignored_at");
+            db.update("msgs", m, "id=?", args(msgId));
+            ContentValues v = new ContentValues();
+            v.put("status", PENDING);
+            v.put("attempts", 0);
+            v.put("next_at", now);
+            v.put("updated_at", now);
+            db.update("dels", v, "msg_id=? AND status=" + IGNORED, args(msgId));
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     /** Takes one delivery for a manual send, unless it was sent already or is being sent right now. Returns it as it was. */
@@ -630,7 +724,7 @@ public final class Db extends SQLiteOpenHelper {
         try {
             Delivery d = null;
             try (Cursor c = db.rawQuery("SELECT id, msg_id, dest_id, dest, status, attempts, next_at, code, error, updated_at, via, trail FROM dels"
-                    + " WHERE id=? AND (status IN (0,2) OR (status=3 AND updated_at<?))",
+                    + " WHERE id=? AND (status IN (0,2,4) OR (status=3 AND updated_at<?))",
                     new String[]{String.valueOf(id), String.valueOf(now - STALE_SENDING_MS)})) {
                 if (c.moveToFirst()) d = readDel(c);
             }
@@ -684,12 +778,12 @@ public final class Db extends SQLiteOpenHelper {
         }
     }
 
-    /** Deliveries to one destination since a time: {total, failed}. */
+    /** Deliveries to one destination since a time: {taken (not filtered or ignored), failed, left out by its filters}. */
     public int[] destStats(long destId, long since) {
         try (Cursor c = getReadableDatabase().rawQuery(
-                "SELECT COUNT(*), SUM(status=2) FROM dels d JOIN msgs m ON m.id=d.msg_id WHERE d.dest_id=? AND m.at>=?",
+                "SELECT SUM(status NOT IN (4,5)), SUM(status=2), SUM(status=4) FROM dels d JOIN msgs m ON m.id=d.msg_id WHERE d.dest_id=? AND m.at>=?",
                 new String[]{String.valueOf(destId), String.valueOf(since)})) {
-            return c.moveToFirst() ? new int[]{c.getInt(0), c.getInt(1)} : new int[]{0, 0};
+            return c.moveToFirst() ? new int[]{c.getInt(0), c.getInt(1), c.getInt(2)} : new int[]{0, 0, 0};
         }
     }
 
@@ -697,7 +791,7 @@ public final class Db extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
-            db.execSQL("DELETE FROM dels WHERE msg_id IN (SELECT id FROM msgs WHERE at<?) AND status IN (1,2)", new Object[]{ms});
+            db.execSQL("DELETE FROM dels WHERE msg_id IN (SELECT id FROM msgs WHERE at<?) AND status IN (1,2,4,5)", new Object[]{ms});
             db.execSQL("DELETE FROM msgs WHERE at<? AND id NOT IN (SELECT msg_id FROM dels)", new Object[]{ms});
             db.setTransactionSuccessful();
         } finally {
@@ -707,7 +801,7 @@ public final class Db extends SQLiteOpenHelper {
 
     public void clearLog() {
         SQLiteDatabase db = getWritableDatabase();
-        db.delete("dels", "status IN (1,2)", null);
+        db.delete("dels", "status IN (1,2,4,5)", null);
         db.execSQL("DELETE FROM msgs WHERE id NOT IN (SELECT msg_id FROM dels)");
     }
 

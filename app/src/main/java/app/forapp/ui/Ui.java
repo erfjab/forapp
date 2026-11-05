@@ -307,8 +307,15 @@ final class Ui {
     }
 
     static void confirm(Activity a, String title, String msg, String yes, Runnable onYes) {
-        new AlertDialog.Builder(a).setTitle(title).setMessage(msg)
-                .setPositiveButton(yes, (d, w) -> onYes.run())
+        AlertDialog d = new AlertDialog.Builder(a).setTitle(title).setMessage(msg)
+                .setPositiveButton(yes, (x, w) -> onYes.run())
                 .setNegativeButton("انصراف", null).show();
+        grayCancel(d);
+    }
+
+    /** "Cancel" in grey, so the action beside it is the one that stands out. */
+    static void grayCancel(AlertDialog d) {
+        android.widget.Button b = d.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (b != null) b.setTextColor(color(d.getContext(), R.color.mid));
     }
 }
