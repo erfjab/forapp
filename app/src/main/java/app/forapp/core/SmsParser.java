@@ -19,7 +19,7 @@ public final class SmsParser {
     }
 
     private static final Pattern NUM = Pattern.compile("\\d{1,3}(?:,\\d{3})+|\\d{4,}");
-    private static final String[] DEPOSIT = {"واریز", "انتقال به حساب شما", "دریافت وجه", "بستانکار", "+"};
+    private static final String[] DEPOSIT = {"واریز", "انتقال به حساب شما", "دریافت وجه", "دریافت پل", "بستانکار", "+"};
     private static final String[] WITHDRAW = {"برداشت", "خرید", "کسر", "پرداخت", "انتقال از حساب", "بدهکار"};
 
     /** Unify digits, separators and Arabic letter forms so one set of rules covers every bank. */
