@@ -587,6 +587,68 @@ public final class Db extends SQLiteOpenHelper {
         return l;
     }
 
+    /**
+     * The SMS of [from, to), oldest first, for a report. {@code bankId}/{@code destId} 0 means any;
+     * {@code withDeliveries} also fills each row's deliveries (one more query for the whole range).
+     */
+    public List<Report.Row> reportRows(long from, long to, int type, long bankId, long destId, boolean withIgnored, boolean withDeliveries) {
+        StringBuilder w = new StringBuilder(" WHERE m.at>=? AND m.at<?");
+        if (type == Report.TYPE_DEPOSIT) w.append(" AND m.deposit=1");
+        else if (type == Report.TYPE_BOTH) w.append(" AND m.deposit IS NOT NULL");
+        if (bankId > 0) w.append(" AND m.bank_id=").append(bankId);
+        if (destId > 0) w.append(" AND m.id IN (SELECT msg_id FROM dels WHERE dest_id=").append(destId).append(" AND status<>").append(FILTERED).append(")");
+        if (!withIgnored) w.append(" AND m.ignored_at IS NULL");
+        String[] a = {String.valueOf(from), String.valueOf(to)};
+        List<Report.Row> l = new ArrayList<>();
+        Map<Long, Report.Row> byId = new HashMap<>();
+        SQLiteDatabase db = getReadableDatabase();
+        try (Cursor c = db.rawQuery(MSG_SELECT + w + " GROUP BY m.id ORDER BY m.at", a)) {
+            while (c.moveToNext()) {
+                Msg m = readMsg(c);
+                Report.Row r = new Report.Row();
+                r.id = m.id;
+                r.at = m.at;
+                r.bank = m.bank == null ? "" : m.bank;
+                r.sender = m.sender;
+                r.body = m.body;
+                r.amount = m.amount;
+                r.deposit = m.deposit;
+                r.status = Report.status(m);
+                r.dests = m.dests;
+                r.failedDests = m.failedDests;
+                l.add(r);
+                byId.put(r.id, r);
+            }
+        }
+        if (withDeliveries && !l.isEmpty()) {
+            try (Cursor c = db.rawQuery("SELECT d.msg_id, d.dest, d.status, d.code, d.error, d.attempts FROM dels d JOIN msgs m ON m.id=d.msg_id"
+                    + " WHERE m.at>=? AND m.at<? ORDER BY d.id", a)) {
+                while (c.moveToNext()) {
+                    Report.Row r = byId.get(c.getLong(0));
+                    if (r == null) continue;
+                    Report.Delivery d = new Report.Delivery();
+                    d.dest = c.getString(1);
+                    int s = c.getInt(2);
+                    d.status = s == SENT ? Report.SENT : s == FAILED ? Report.FAILED : s == FILTERED ? Report.FILTERED
+                            : s == IGNORED ? Report.IGNORED : Report.PENDING;
+                    d.code = c.isNull(3) ? null : c.getInt(3);
+                    d.error = c.getString(4);
+                    d.attempts = c.getInt(5);
+                    if (r.deliveries == null) r.deliveries = new ArrayList<>();
+                    r.deliveries.add(d);
+                }
+            }
+        }
+        return l;
+    }
+
+    /** Time of the oldest SMS still in the log, or -1. */
+    public long oldestMessageAt() {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT MIN(at) FROM msgs", null)) {
+            return c.moveToFirst() && !c.isNull(0) ? c.getLong(0) : -1;
+        }
+    }
+
     public List<Delivery> deliveries(long msgId) {
         List<Delivery> l = new ArrayList<>();
         try (Cursor c = getReadableDatabase().rawQuery(

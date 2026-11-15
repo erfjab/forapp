@@ -47,6 +47,27 @@ public final class Prefs {
     public int retentionDays() { return p.getInt("retention_days", 90); }
     public void retentionDays(int v) { p.edit().putInt("retention_days", v).apply(); }
 
+    // ---------- report screen: the last choices, so it opens the way it was left ----------
+
+    /** "today", "7", "month", "prev", "30" or "custom". */
+    public String reportRange() { return p.getString("report_range", "month"); }
+    public void reportRange(String v) { p.edit().putString("report_range", v).apply(); }
+    /** The custom range: local midnights of its first and last day; 0 when never chosen. */
+    public long reportFrom() { return p.getLong("report_from", 0); }
+    public long reportTo() { return p.getLong("report_to", 0); }
+    public void reportCustom(long from, long to) { p.edit().putLong("report_from", from).putLong("report_to", to).apply(); }
+    public int reportType() { return p.getInt("report_type", Report.TYPE_DEPOSIT); }
+    public void reportType(int v) { p.edit().putInt("report_type", v).apply(); }
+    public long reportBank() { return p.getLong("report_bank", 0); }
+    public void reportBank(long v) { p.edit().putLong("report_bank", v).apply(); }
+    public long reportDest() { return p.getLong("report_dest", 0); }
+    public void reportDest(long v) { p.edit().putLong("report_dest", v).apply(); }
+    public String reportFormat() { return p.getString("report_fmt", Export.XLSX); }
+    public void reportFormat(String v) { p.edit().putString("report_fmt", v).apply(); }
+    /** Export switches, by name: summary, deliveries, ignored, body. */
+    public boolean reportOption(String name, boolean def) { return p.getBoolean("report_opt_" + name, def); }
+    public void reportOption(String name, boolean v) { p.edit().putBoolean("report_opt_" + name, v).apply(); }
+
     public long lastCleanup() { return p.getLong("last_cleanup", 0); }
     public void lastCleanup(long v) { p.edit().putLong("last_cleanup", v).apply(); }
 

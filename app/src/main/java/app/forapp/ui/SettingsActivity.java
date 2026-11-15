@@ -118,6 +118,10 @@ public final class SettingsActivity extends BaseActivity {
         link("خروجی لاگ فنی", "", R.color.mid, "هر کاری که برنامه کرده و هر پیامکی که دیده، با زمان دقیق؛ ۷ روز آخر. برای بررسی مشکل.",
                 this::exportTrace);
 
+        add(Ui.section(this, "گزارش"));
+        link("گزارش و خروجی", "", R.color.mid, "جمع واریزها در هر بازه، و فایل Excel، CSV، JSON یا متن",
+                () -> startActivity(new Intent(this, ReportActivity.class)));
+
         add(Ui.section(this, "پشتیبان تنظیمات"));
         link("خروجی گرفتن", "", R.color.mid, "بانک‌ها، مقصدها و تنظیمات در یک فایل؛ بدون لاگ. کلیدهای API هم در فایل هست.", this::exportSettings);
         link("وارد کردن از فایل", "", R.color.mid, "تنظیمات فعلی با فایل جایگزین می‌شود؛ لاگ دست نمی‌خورد", this::importSettings);

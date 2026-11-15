@@ -73,6 +73,55 @@ public final class Fa {
         return new int[]{(int) jy, jm, jd};
     }
 
+    /** Jalali → Gregorian {year, month(1-12), day}; the inverse of {@link #toJalali}. */
+    public static int[] toGregorian(int jy, int jm, int jd) {
+        jy += 1595;
+        long days = -355668 + 365L * jy + (jy / 33) * 8L + ((jy % 33) + 3) / 4 + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
+        long gy = 400 * (days / 146097);
+        days %= 146097;
+        if (days > 36524) {
+            gy += 100 * (--days / 36524);
+            days %= 36524;
+            if (days >= 365) days++;
+        }
+        gy += 4 * (days / 1461);
+        days %= 1461;
+        if (days > 365) {
+            gy += (days - 1) / 365;
+            days = (days - 1) % 365;
+        }
+        long gd = days + 1;
+        boolean leap = (gy % 4 == 0 && gy % 100 != 0) || gy % 400 == 0;
+        int[] len = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        int gm = 0;
+        while (gm < 11 && gd > len[gm]) gd -= len[gm++];
+        return new int[]{(int) gy, gm + 1, (int) gd};
+    }
+
+    /** Days in a Jalali month: 31 for the first six, 30 for the next five, 29 or 30 for Esfand. */
+    public static int monthLength(int jy, int jm) {
+        if (jm <= 6) return 31;
+        if (jm <= 11) return 30;
+        int[] g = toGregorian(jy, 12, 30);
+        int[] back = toJalali(g[0], g[1], g[2]);
+        return back[1] == 12 && back[2] == 30 ? 30 : 29;
+    }
+
+    /** Local midnight at the start of a Jalali day. */
+    public static long jalaliDayStart(int jy, int jm, int jd, TimeZone tz) {
+        int[] g = toGregorian(jy, jm, jd);
+        Calendar c = Calendar.getInstance(tz);
+        c.clear();
+        c.set(g[0], g[1] - 1, g[2], 0, 0, 0);
+        return c.getTimeInMillis();
+    }
+
+    /** "۲۵ آبان ۱۴۰۵", without the year when {@code year} is false. */
+    public static String date(long ms, TimeZone tz, boolean year) {
+        int[] j = jalali(ms, tz);
+        return d(j[2]) + " " + MONTHS[j[1] - 1] + (year ? " " + d(j[0]) : "");
+    }
+
     public static int[] jalali(long ms, TimeZone tz) {
         Calendar c = Calendar.getInstance(tz);
         c.setTimeInMillis(ms);

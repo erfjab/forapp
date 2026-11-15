@@ -40,6 +40,14 @@
         <activity android:name=".ui.DestinationEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ProxyEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.BanksActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ReportActivity" android:exported="false" />
+
+        <!-- Shared report files only (cache/share), read-only, through per-share URI grants. -->
+        <provider
+            android:name=".core.ShareProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <receiver
             android:name=".core.SmsReceiver"
