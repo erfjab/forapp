@@ -529,7 +529,7 @@ public final class ReportActivity extends BaseActivity {
     private View option(String title, String sub, String key, boolean def, Runnable refresh) {
         Switch s = Ui.toggle(this, p.reportOption(key, def));
         s.setOnCheckedChangeListener((v, c) -> {
-            p.reportOption(key, c);
+            p.setReportOption(key, c);
             refresh.run();
         });
         LinearLayout r = Ui.row(this, title, sub, s);

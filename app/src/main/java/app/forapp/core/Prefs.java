@@ -66,7 +66,7 @@ public final class Prefs {
     public void reportFormat(String v) { p.edit().putString("report_fmt", v).apply(); }
     /** Export switches, by name: summary, deliveries, ignored, body. */
     public boolean reportOption(String name, boolean def) { return p.getBoolean("report_opt_" + name, def); }
-    public void reportOption(String name, boolean v) { p.edit().putBoolean("report_opt_" + name, v).apply(); }
+    public void setReportOption(String name, boolean v) { p.edit().putBoolean("report_opt_" + name, v).apply(); }
 
     public long lastCleanup() { return p.getLong("last_cleanup", 0); }
     public void lastCleanup(long v) { p.edit().putLong("last_cleanup", v).apply(); }
