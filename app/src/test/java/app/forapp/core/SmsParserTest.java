@@ -22,6 +22,15 @@ public class SmsParserTest {
         assertEquals("487", SmsParser.code(r.amount));
     }
 
+    @Test public void bluBridgeTransferIsDeposit() {
+        SmsParser.Result r = p("بلو\nدریافت پل\n کاربر عزیز، 1,000,123 ریال به حساب شما نشست.\n"
+                + " موجودی: 100,000,000 ریال\n۲۳:۴۲\n۱۴۰۵.۰۸.۲۳");
+        assertEquals(Long.valueOf(1_000_123), r.amount);
+        assertEquals("rial", r.unit);
+        assertEquals(Boolean.TRUE, r.deposit);
+        assertEquals("123", SmsParser.code(r.amount));
+    }
+
     @Test public void persianDigitsAndSeparators() {
         SmsParser.Result r = p("واریز به حساب ۰۱۲۳۴۵۶۷۸۹\nمبلغ: ۲٬۵۰۰٬۴۸۷ ریال\nمانده: ۱۰٬۰۰۰٬۰۰۰\n۱۴۰۵/۰۷/۱۶ ۱۴:۲۰");
         assertEquals(Long.valueOf(2_500_487), r.amount);
